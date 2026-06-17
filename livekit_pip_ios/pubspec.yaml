@@ -11,7 +11,7 @@ flutter:
     implements: livekit_pip
     platforms:
       ios:
-        pluginClass: LivekitPipPlugin
+        pluginClass: LiveKitPipPlugin
         dartPluginClass: LivekitPipIOS
 
 dependencies:

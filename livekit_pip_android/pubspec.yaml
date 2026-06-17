@@ -12,7 +12,7 @@ flutter:
     platforms:
       android:
         package: dev.kaffah
-        pluginClass: LivekitPipPlugin
+        pluginClass: PipPlugin
         dartPluginClass: LivekitPipAndroid
 
 dependencies:

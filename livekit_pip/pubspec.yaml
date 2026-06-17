@@ -17,6 +17,7 @@ flutter:
 dependencies:
   flutter:
     sdk: flutter
+  livekit_client: ^2.8.0
   livekit_pip_android:
     path: ../livekit_pip_android
   livekit_pip_ios:

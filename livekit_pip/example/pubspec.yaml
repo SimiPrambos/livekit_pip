@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  livekit_client: ^2.8.0
   livekit_pip:
     # When depending on this package from a real application you should use:
     #   livekit_pip: ^x.y.z

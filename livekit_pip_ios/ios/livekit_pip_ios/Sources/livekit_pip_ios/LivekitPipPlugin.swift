@@ -1,14 +1,9 @@
 import Flutter
 
-public class LivekitPipPlugin: NSObject, FlutterPlugin, LivekitPipApi {
-  public static func register(with registrar: FlutterPluginRegistrar) {
-    let binaryMessenger = registrar.messenger()
-    let instance = LivekitPipPlugin()
-    LivekitPipApiSetup.setUp(binaryMessenger: binaryMessenger, api: instance)
-    registrar.publish(instance)
-  }
-
-  func getPlatformName(completion: @escaping (Result<String?, Error>) -> Void) {
-    completion(.success("iOS"))
-  }
+// Placeholder — full implementation in Phase 2 (T017, T018, T041–T044).
+public class LiveKitPipPlugin: NSObject, FlutterPlugin {
+    public static func register(with registrar: FlutterPluginRegistrar) {
+        let instance = LiveKitPipPlugin()
+        registrar.publish(instance)
+    }
 }
