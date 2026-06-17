@@ -153,5 +153,6 @@ All packages use `very_good_analysis` — stricter than Flutter defaults. Always
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read the current plan at
+`specs/001-livekit-pip-plugin/plan.md`.
 <!-- SPECKIT END -->
