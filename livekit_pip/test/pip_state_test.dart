@@ -86,8 +86,9 @@ void main() {
       );
 
       // Emit AFTER initialize so _stateSubscription is wired up
-      stateRaw.add(2); // entering
-      stateRaw.add(3); // active
+      stateRaw
+        ..add(2) // entering
+        ..add(3); // active
       await Future<void>.delayed(const Duration(milliseconds: 10));
       await sub.cancel();
       await pip.dispose();
@@ -112,8 +113,9 @@ void main() {
         ),
       );
 
-      stateRaw.add(4); // exiting
-      stateRaw.add(1); // inactive
+      stateRaw
+        ..add(4) // exiting
+        ..add(1); // inactive
       await Future<void>.delayed(const Duration(milliseconds: 10));
       await sub.cancel();
       await pip.dispose();

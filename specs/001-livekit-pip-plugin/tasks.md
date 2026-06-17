@@ -85,13 +85,13 @@ call, press home, confirm PiP window appears within 500 ms. See quickstart.md §
 
 ### Dart Layer — US1
 
-- [ ] T021 [P] [US1] Implement `LiveKitPip.isSupported()` — delegate to `MethodChannelLivekitPip.isSupported()` which calls `LiveKitPipHostApi.isSupported()` via generated Pigeon stub in `livekit_pip/lib/src/livekit_pip.dart` and `livekit_pip_platform_interface/lib/src/method_channel_livekit_pip.dart`
-- [ ] T022 [US1] Implement `LiveKitPip.initialize()` — assert `!_disposed`, call `isSupported()`, store Room + config, call native `initialize(PipInitRequest)` with config fields and initial video dimensions, subscribe to Room events in `livekit_pip/lib/src/livekit_pip.dart`
-- [ ] T023 [US1] Implement `LiveKitPip.enterPiP()` and `exitPiP()` — guard: throw `StateError` if not initialized or disposed; throw `UnsupportedError` if unsupported; delegate to `MethodChannelLivekitPip` in `livekit_pip/lib/src/livekit_pip.dart`
-- [ ] T024 [US1] Implement `LiveKitPip.dispose()` — cancel all Room subscriptions, call native `dispose()`, close `_stateController` with done event, set `_disposed = true`; idempotent in `livekit_pip/lib/src/livekit_pip.dart`
-- [ ] T025 [P] [US1] Implement `LiveKitPipView` — return `UiKitView(viewType: 'livekit_pip_view', ...)` on iOS via `defaultTargetPlatform` check; return `SizedBox.shrink()` on Android in `livekit_pip/lib/src/livekit_pip_view.dart`
-- [ ] T026 [US1] Implement Android widget swap: on EventChannel `active` state, rebuild widget tree with `pipWidgetBuilder(context, room)`; on `inactive`, restore original content; implement via callback registered in `initialize()` in `livekit_pip/lib/src/livekit_pip.dart`
-- [ ] T027 [US1] Write unit tests for `LiveKitPip` lifecycle: initialize → enter → active → exit → inactive → dispose; mock `MethodChannelLivekitPip` and EventChannel with `mocktail` in `livekit_pip/test/livekit_pip_test.dart`
+- [X] T021 [P] [US1] Implement `LiveKitPip.isSupported()` — delegate to `MethodChannelLivekitPip.isSupported()` which calls `LiveKitPipHostApi.isSupported()` via generated Pigeon stub in `livekit_pip/lib/src/livekit_pip.dart` and `livekit_pip_platform_interface/lib/src/method_channel_livekit_pip.dart`
+- [X] T022 [US1] Implement `LiveKitPip.initialize()` — assert `!_disposed`, call `isSupported()`, store Room + config, call native `initialize(PipInitRequest)` with config fields and initial video dimensions, subscribe to Room events in `livekit_pip/lib/src/livekit_pip.dart`
+- [X] T023 [US1] Implement `LiveKitPip.enterPiP()` and `exitPiP()` — guard: throw `StateError` if not initialized or disposed; throw `UnsupportedError` if unsupported; delegate to `MethodChannelLivekitPip` in `livekit_pip/lib/src/livekit_pip.dart`
+- [X] T024 [US1] Implement `LiveKitPip.dispose()` — cancel all Room subscriptions, call native `dispose()`, close `_stateController` with done event, set `_disposed = true`; idempotent in `livekit_pip/lib/src/livekit_pip.dart`
+- [X] T025 [P] [US1] Implement `LiveKitPipView` — return `UiKitView(viewType: 'livekit_pip_view', ...)` on iOS via `defaultTargetPlatform` check; return `SizedBox.shrink()` on Android in `livekit_pip/lib/src/livekit_pip_view.dart`
+- [X] T026 [US1] Implement Android widget swap: on EventChannel `active` state, rebuild widget tree with `pipWidgetBuilder(context, room)`; on `inactive`, restore original content; implement via callback registered in `initialize()` in `livekit_pip/lib/src/livekit_pip.dart`
+- [X] T027 [US1] Write unit tests for `LiveKitPip` lifecycle: initialize → enter → active → exit → inactive → dispose; mock `MethodChannelLivekitPip` and EventChannel with `mocktail` in `livekit_pip/test/livekit_pip_test.dart`
 
 ### Android Native — US1
 

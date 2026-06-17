@@ -16,12 +16,13 @@ class LiveKitPip {
 
   bool _initialized = false;
   bool _disposed = false;
+  bool _supported = false;
 
-  // Stored for use in T022/T024 (ActiveSpeakerSelector wiring, dispose).
+  // Stored for future use in ActiveSpeakerSelector wiring (T048/T050).
   // ignore: unused_field
   Room? _room;
 
-  // Stored for use in T022/T024 (config forwarding, dispose).
+  // Stored for future use in screen-sharing suppression (T059).
   // ignore: unused_field
   LiveKitPipConfiguration? _config;
 
@@ -39,11 +40,19 @@ class LiveKitPip {
   /// Attaches the plugin to [room] with [config].
   ///
   /// Throws [StateError] if called after [dispose].
+  /// Throws [UnsupportedError] if the device does not support PiP.
   Future<void> initialize({
     required Room room,
     required LiveKitPipConfiguration config,
   }) async {
     _assertNotDisposed('initialize');
+    _supported = await LivekitPipPlatform.instance.isSupported();
+    if (!_supported) {
+      _stateController.add(PipState.unsupported);
+      throw UnsupportedError(
+        'PiP is not supported on this device (isSupported() returned false)',
+      );
+    }
     _room = room;
     _config = config;
     await LivekitPipPlatform.instance.initialize(
@@ -51,8 +60,7 @@ class LiveKitPip {
       disableWhenScreenSharing: config.disableWhenScreenSharing,
       androidAutoEnterOnBackground: config.android.autoEnterOnBackground,
       iosAutoEnterOnBackground: config.ios.autoEnterOnBackground,
-      iosIncludeLocalParticipantVideo:
-          config.ios.includeLocalParticipantVideo,
+      iosIncludeLocalParticipantVideo: config.ios.includeLocalParticipantVideo,
       videoWidth: 0,
       videoHeight: 0,
     );
@@ -65,9 +73,14 @@ class LiveKitPip {
   /// Requests the OS to enter PiP mode.
   ///
   /// Throws [StateError] if not initialized or already disposed.
-  /// Throws [UnsupportedError] if [isSupported] returns false.
+  /// Throws [UnsupportedError] if [isSupported] returned false.
   Future<void> enterPiP() {
     _assertInitialized('enterPiP');
+    if (!_supported) {
+      throw UnsupportedError(
+        'PiP is not supported on this device (isSupported() returned false)',
+      );
+    }
     return LivekitPipPlatform.instance.enterPip();
   }
 
