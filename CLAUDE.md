@@ -150,3 +150,8 @@ fluttium test flows/test_platform_name.yaml -d <device>
 
 ## Linting
 All packages use `very_good_analysis` — stricter than Flutter defaults. Always run `flutter analyze` before committing. Test mocking uses `mocktail` with `MockPlatformInterfaceMixin`.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
