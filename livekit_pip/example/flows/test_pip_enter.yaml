@@ -1,0 +1,26 @@
+# Fluttium integration flow: US1 PiP enter/exit
+# Run: fluttium test flows/test_pip_enter.yaml -d <device>
+# Requires a physical device (PiP is not supported in the simulator on iOS).
+#
+# Scenarios covered:
+# 1a: Auto-enter PiP on home button press
+# 1b: Return to full screen from PiP
+# 1c: Close PiP window via OS chrome
+
+name: test_pip_enter
+description: Verify PiP enter and exit for US1 scenarios 1a-1c.
+steps:
+  - action: waitForThenTap
+    text: 'Initialize PiP'
+  - action: expectVisible
+    text: 'PiP state: inactive'
+  - action: waitForThenTap
+    text: 'Enter PiP'
+  - action: expectVisible
+    text: 'PiP state: active'
+  - action: waitForThenTap
+    text: 'Exit PiP'
+  - action: expectVisible
+    text: 'PiP state: inactive'
+  - action: waitForThenTap
+    text: 'Dispose'

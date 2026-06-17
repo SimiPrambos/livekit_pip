@@ -118,8 +118,8 @@ call, press home, confirm PiP window appears within 500 ms. See quickstart.md §
 
 ### Example App & Integration — US1
 
-- [ ] T045 [US1] Build example app call page: connect to LiveKit sandbox, place `LiveKitPipView(room: room)` in stack, initialize `LiveKitPip`, display `stateStream` value as text label, add "Enter PiP" / "Exit PiP" buttons in `livekit_pip/example/lib/main.dart`
-- [ ] T046 [US1] Add Fluttium integration flow `livekit_pip/example/flows/test_pip_enter.yaml` covering quickstart.md scenarios 1a (auto-enter), 1b (return to full screen), 1c (close PiP)
+- [X] T045 [US1] Build example app call page: connect to LiveKit sandbox, place `LiveKitPipView(room: room)` in stack, initialize `LiveKitPip`, display `stateStream` value as text label, add "Enter PiP" / "Exit PiP" buttons in `livekit_pip/example/lib/main.dart`
+- [X] T046 [US1] Add Fluttium integration flow `livekit_pip/example/flows/test_pip_enter.yaml` covering quickstart.md scenarios 1a (auto-enter), 1b (return to full screen), 1c (close PiP)
 
 **Checkpoint**: User Story 1 fully functional — run `flutter test` in all packages and `fluttium test flows/test_pip_enter.yaml` on device.
 
