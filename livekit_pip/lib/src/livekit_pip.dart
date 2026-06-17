@@ -85,6 +85,13 @@ class LiveKitPip {
       },
     );
     _initialized = true;
+    // Push initial dominant track — participants may already be publishing
+    // video before initialize() is called, so we can't wait for the first
+    // ActiveSpeakersChangedEvent.
+    final initialTrackId = _speakerSelector?.currentBestTrackId;
+    if (initialTrackId != null) {
+      unawaited(LivekitPipPlatform.instance.updateActiveTrack(initialTrackId));
+    }
   }
 
   /// Requests the OS to enter PiP mode.

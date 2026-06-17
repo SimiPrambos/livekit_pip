@@ -139,7 +139,7 @@ class CallPage extends StatefulWidget {
 }
 
 class _CallPageState extends State<CallPage> {
-  final _pip = LiveKitPip();
+  late LiveKitPip _pip;
 
   bool? _supported;
   PipState _pipState = PipState.inactive;
@@ -149,6 +149,7 @@ class _CallPageState extends State<CallPage> {
   @override
   void initState() {
     super.initState();
+    _pip = LiveKitPip();
     unawaited(_checkSupport());
   }
 
@@ -197,7 +198,13 @@ class _CallPageState extends State<CallPage> {
     await _stateSub?.cancel();
     _stateSub = null;
     await _pip.dispose();
-    if (mounted) setState(() => _initialized = false);
+    if (mounted) {
+      setState(() {
+        _initialized = false;
+        _pipState = PipState.inactive;
+        _pip = LiveKitPip(); // fresh instance — disposed one cannot be reused
+      });
+    }
   }
 
   Future<void> _hangUp() async {

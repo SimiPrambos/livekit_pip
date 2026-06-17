@@ -23,7 +23,6 @@ class ActiveSpeakerSelector {
       ..on<LocalTrackUnpublishedEvent>(_onLocalTrackUnpublished);
   }
 
-  // ignore: unused_field — kept for potential future use (re-scan on demand)
   final Room _room;
   final void Function(String? trackId) _onTrackChanged;
 
@@ -87,6 +86,25 @@ class ActiveSpeakerSelector {
     } else if (event.publication.source == TrackSource.camera) {
       _localCameraActive = false;
     }
+  }
+
+  /// Returns the best available remote video track ID from the room's current
+  /// state, without waiting for an event. Used to seed native on initialize.
+  String? get currentBestTrackId {
+    for (final p in _room.activeSpeakers) {
+      if (p is! RemoteParticipant) continue;
+      for (final pub in p.videoTrackPublications) {
+        final trackId = pub.track?.mediaStreamTrack.id;
+        if (!pub.muted && pub.subscribed && trackId != null) return trackId;
+      }
+    }
+    for (final p in _room.remoteParticipants.values) {
+      for (final pub in p.videoTrackPublications) {
+        final trackId = pub.track?.mediaStreamTrack.id;
+        if (!pub.muted && pub.subscribed && trackId != null) return trackId;
+      }
+    }
+    return null;
   }
 
   void _updateTrack(String trackId) {
