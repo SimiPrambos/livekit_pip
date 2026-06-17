@@ -2,12 +2,21 @@ import AVFoundation
 import AVKit
 import Flutter
 
+/// UIView subclass that propagates layout changes to the display layer.
+private final class _PipHostView: UIView {
+    var onLayout: (() -> Void)?
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+}
+
 /// UIView that hosts AVSampleBufferDisplayLayer and AVPictureInPictureController.
 ///
 /// Never recreate this view mid-call — rebind FrameBridge.displayLayer instead.
 class PipPlatformView: NSObject, FlutterPlatformView {
 
-    private let _view: UIView
+    private let _view: _PipHostView
     let displayLayer: AVSampleBufferDisplayLayer
     private var pipController: AVPictureInPictureController?
     private let playbackDelegate = PlaybackDelegate()
@@ -15,20 +24,18 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     var frameBridge: FrameBridge?
 
     init(frame: CGRect, viewId: Int64, args: Any?) {
-        _view = UIView(frame: frame)
+        _view = _PipHostView(frame: frame)
         _view.backgroundColor = .black
+        _view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         displayLayer = AVSampleBufferDisplayLayer()
         displayLayer.videoGravity = .resizeAspect
         displayLayer.frame = _view.bounds
         _view.layer.addSublayer(displayLayer)
         super.init()
-        _view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(updateLayerFrame),
-            name: UIView.layoutMarginsDidChangeNotification,
-            object: nil
-        )
+        _view.onLayout = { [weak self] in
+            guard let self = self else { return }
+            self.displayLayer.frame = self._view.bounds
+        }
         if AVPictureInPictureController.isPictureInPictureSupported() {
             let source = AVPictureInPictureController.ContentSource(
                 sampleBufferDisplayLayer: displayLayer,
@@ -40,10 +47,6 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     }
 
     func view() -> UIView { _view }
-
-    @objc private func updateLayerFrame() {
-        displayLayer.frame = _view.bounds
-    }
 
     func startPictureInPicture() {
         pipController?.startPictureInPicture()
@@ -86,7 +89,6 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
         _ controller: AVPictureInPictureController,
         failedToStartPictureInPictureWithError error: Error
     ) {
-        // Log error and fall back to inactive — do not crash.
         print("[livekit_pip] PiP failed to start: \(error.localizedDescription)")
         onStateChanged?(1) // inactive
     }
