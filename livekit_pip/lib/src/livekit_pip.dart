@@ -15,13 +15,12 @@ class LiveKitPip {
 
   StreamSubscription<int>? _stateSubscription;
   ActiveSpeakerSelector? _speakerSelector;
+  EventsListener<RoomEvent>? _roomListener;
 
+  PipState _currentState = PipState.inactive;
   bool _initialized = false;
   bool _disposed = false;
   bool _supported = false;
-
-  // Stored for screen-sharing suppression (T059).
-  // ignore: unused_field
   LiveKitPipConfiguration? _config;
 
   /// Continuous stream of PiP lifecycle state changes.
@@ -60,6 +59,15 @@ class LiveKitPip {
         }
       },
     );
+    _roomListener = room.createListener()
+      ..on<RoomDisconnectedEvent>((_) {
+        if (!_disposed && _initialized) {
+          if (_currentState == PipState.active ||
+              _currentState == PipState.entering) {
+            LivekitPipPlatform.instance.exitPip();
+          }
+        }
+      });
     await LivekitPipPlatform.instance.initialize(
       enabled: config.enabled,
       disableWhenScreenSharing: config.disableWhenScreenSharing,
@@ -70,7 +78,11 @@ class LiveKitPip {
       videoHeight: 0,
     );
     _stateSubscription = LivekitPipPlatform.instance.stateStream.listen(
-      (raw) => _stateController.add(PipState.values[raw]),
+      (raw) {
+        final state = PipState.values[raw];
+        _currentState = state;
+        _stateController.add(state);
+      },
     );
     _initialized = true;
   }
@@ -85,6 +97,11 @@ class LiveKitPip {
       throw UnsupportedError(
         'PiP is not supported on this device (isSupported() returned false)',
       );
+    }
+    // Suppress PiP while the local participant is screen-sharing.
+    if ((_config?.disableWhenScreenSharing ?? true) &&
+        (_speakerSelector?.isScreenSharing ?? false)) {
+      return Future<void>.value();
     }
     return LivekitPipPlatform.instance.enterPip();
   }
@@ -103,6 +120,8 @@ class LiveKitPip {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    await _roomListener?.dispose();
+    _roomListener = null;
     await _speakerSelector?.dispose();
     _speakerSelector = null;
     await _stateSubscription?.cancel();

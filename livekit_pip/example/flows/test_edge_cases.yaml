@@ -1,0 +1,53 @@
+description: US3 – Hardening, edge cases, and cleanup
+---
+# Scenario 3a: unsupported device — isSupported shows false, button disabled
+- step: "Launch app"
+  action: launchApp
+
+- step: "PiP support status is visible"
+  action: expectVisible
+  text: "PiP supported:"
+
+# Scenario 3b: Initialize before entering PiP (button only enabled when supported)
+- step: "Initialize PiP when supported"
+  action: tapOn
+  text: "Initialize PiP"
+
+- step: "PiP state shows inactive after init"
+  action: expectVisible
+  text: "PiP state: inactive"
+
+# Scenario 3c: Dispose cleans up
+- step: "Dispose releases resources"
+  action: tapOn
+  text: "Dispose"
+
+# Scenario 3d: Post-dispose error — Initialize button reappears
+- step: "Initialize button is visible after dispose"
+  action: expectVisible
+  text: "Initialize PiP"
+
+# Scenario 3e: Intermediate state events (enter → active → exit → inactive)
+- step: "Initialize again"
+  action: tapOn
+  text: "Initialize PiP"
+
+- step: "Enter PiP"
+  action: tapOn
+  text: "Enter PiP"
+
+- step: "PiP becomes active"
+  action: expectVisible
+  text: "PiP state: active"
+
+- step: "Exit PiP"
+  action: tapOn
+  text: "Exit PiP"
+
+- step: "PiP returns to inactive"
+  action: expectVisible
+  text: "PiP state: inactive"
+
+- step: "Dispose at end"
+  action: tapOn
+  text: "Dispose"
