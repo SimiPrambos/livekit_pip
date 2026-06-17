@@ -1,43 +1,56 @@
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:livekit_pip_platform_interface/src/method_channel_livekit_pip.dart';
+import 'package:livekit_pip_platform_interface/livekit_pip_platform_interface.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const kPlatformName = 'platformName';
 
   group('$MethodChannelLivekitPip', () {
-    late MethodChannelLivekitPip
-    methodChannelLivekitPip;
-    final log = <MethodCall>[];
+    late MethodChannelLivekitPip methodChannelLivekitPip;
 
     setUp(() {
       methodChannelLivekitPip = MethodChannelLivekitPip();
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-            methodChannelLivekitPip.methodChannel,
-            (methodCall) async {
-              log.add(methodCall);
-              switch (methodCall.method) {
-                case 'getPlatformName':
-                  return kPlatformName;
-                default:
-                  return null;
-              }
-            },
-          );
     });
 
-    tearDown(log.clear);
-
-    test('getPlatformName', () async {
-      final platformName = await methodChannelLivekitPip
-          .getPlatformName();
+    test('isSupported throws UnimplementedError', () {
       expect(
-        log,
-        <Matcher>[isMethodCall('getPlatformName', arguments: null)],
+        () => methodChannelLivekitPip.isSupported(),
+        throwsUnimplementedError,
       );
-      expect(platformName, equals(kPlatformName));
+    });
+
+    test('enterPip throws UnimplementedError', () {
+      expect(
+        () => methodChannelLivekitPip.enterPip(),
+        throwsUnimplementedError,
+      );
+    });
+
+    test('exitPip throws UnimplementedError', () {
+      expect(
+        () => methodChannelLivekitPip.exitPip(),
+        throwsUnimplementedError,
+      );
+    });
+
+    test('dispose throws UnimplementedError', () {
+      expect(
+        () => methodChannelLivekitPip.dispose(),
+        throwsUnimplementedError,
+      );
+    });
+
+    test('updateActiveTrack throws UnimplementedError', () {
+      expect(
+        () => methodChannelLivekitPip.updateActiveTrack('track-1'),
+        throwsUnimplementedError,
+      );
+    });
+
+    test('stateStream throws UnimplementedError', () {
+      expect(
+        () => methodChannelLivekitPip.stateStream,
+        throwsUnimplementedError,
+      );
     });
   });
 }

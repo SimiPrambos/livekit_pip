@@ -1,13 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livekit_pip_platform_interface/livekit_pip_platform_interface.dart';
-import 'package:livekit_pip_platform_interface/src/method_channel_livekit_pip.dart';
 
-class LivekitPipMock
-    extends LivekitPipPlatform {
-  static const mockPlatformName = 'Mock';
+class _MockLivekitPipPlatform extends LivekitPipPlatform {
+  @override
+  Future<bool> isSupported() async => true;
 
   @override
-  Future<String?> getPlatformName() async => mockPlatformName;
+  Future<void> initialize({
+    required bool enabled,
+    required bool disableWhenScreenSharing,
+    required bool androidAutoEnterOnBackground,
+    required bool iosAutoEnterOnBackground,
+    required bool iosIncludeLocalParticipantVideo,
+    required int videoWidth,
+    required int videoHeight,
+  }) async {}
+
+  @override
+  Future<void> enterPip() async {}
+
+  @override
+  Future<void> exitPip() async {}
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<void> updateActiveTrack(String trackId) async {}
+
+  @override
+  Stream<int> get stateStream => const Stream<int>.empty();
 }
 
 void main() {
@@ -24,20 +46,18 @@ void main() {
   });
 
   group('LivekitPipPlatformInterface', () {
-    late LivekitPipPlatform
-    livekitPipPlatform;
+    late LivekitPipPlatform livekitPipPlatform;
 
     setUp(() {
-      livekitPipPlatform = LivekitPipMock();
-      LivekitPipPlatform.instance =
-          livekitPipPlatform;
+      livekitPipPlatform = _MockLivekitPipPlatform();
+      LivekitPipPlatform.instance = livekitPipPlatform;
     });
 
-    group('getPlatformName', () {
-      test('returns correct name', () async {
+    group('isSupported', () {
+      test('returns true from mock', () async {
         expect(
-          await LivekitPipPlatform.instance.getPlatformName(),
-          equals(LivekitPipMock.mockPlatformName),
+          await LivekitPipPlatform.instance.isSupported(),
+          isTrue,
         );
       });
     });

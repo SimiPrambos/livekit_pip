@@ -1,11 +1,4 @@
-import 'package:livekit_pip_platform_interface/livekit_pip_platform_interface.dart';
-
-LivekitPipPlatform get _platform =>
-    LivekitPipPlatform.instance;
-
-/// Returns the name of the current platform.
-Future<String> getPlatformName() async {
-  final platformName = await _platform.getPlatformName();
-  if (platformName == null) throw Exception('Unable to get platform name.');
-  return platformName;
-}
+export 'src/livekit_pip.dart';
+export 'src/livekit_pip_view.dart';
+export 'src/pip_configuration.dart';
+export 'src/pip_state.dart';

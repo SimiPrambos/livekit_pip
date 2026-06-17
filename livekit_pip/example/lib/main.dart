@@ -20,7 +20,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String? _platformName;
+  bool? _pipSupported;
+  final _pip = LiveKitPip();
 
   @override
   Widget build(BuildContext context) {
@@ -32,11 +33,11 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_platformName == null)
+            if (_pipSupported == null)
               const SizedBox.shrink()
             else
               Text(
-                'Platform Name: $_platformName',
+                'PiP supported: $_pipSupported',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
             const SizedBox(height: 16),
@@ -44,8 +45,8 @@ class _HomePageState extends State<HomePage> {
               onPressed: () async {
                 if (!context.mounted) return;
                 try {
-                  final result = await getPlatformName();
-                  setState(() => _platformName = result);
+                  final result = await _pip.isSupported();
+                  setState(() => _pipSupported = result);
                 } on Exception catch (error) {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -56,7 +57,7 @@ class _HomePageState extends State<HomePage> {
                   );
                 }
               },
-              child: const Text('Get Platform Name'),
+              child: const Text('Check PiP Support'),
             ),
           ],
         ),

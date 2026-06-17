@@ -54,16 +54,16 @@ stories depend on. No user story work begins until this phase is complete.
 
 **⚠️ CRITICAL**: All Phase 3+ tasks block on Phase 2 completion.
 
-- [ ] T006 Create `PipState` enum (values: `unsupported`, `inactive`, `entering`, `active`, `exiting`) with `///` doc comment on each value in `livekit_pip/lib/src/pip_state.dart`
-- [ ] T007 [P] Create `LiveKitPipConfiguration`, `AndroidPipConfiguration`, and `IosPipConfiguration` immutable classes with all fields and defaults from `specs/001-livekit-pip-plugin/contracts/dart-api.md` in `livekit_pip/lib/src/pip_configuration.dart`
-- [ ] T008 Create abstract `LivekitPipPlatform` with method stubs for `isSupported`, `initialize`, `enterPip`, `exitPip`, `dispose`, `updateActiveTrack`, and `stateStream` getter in `livekit_pip_platform_interface/lib/src/livekit_pip_platform.dart`
-- [ ] T009 Create `MethodChannelLivekitPip` stub extending `LivekitPipPlatform` (all methods throw `UnimplementedError` initially) in `livekit_pip_platform_interface/lib/src/method_channel_livekit_pip.dart`
+- [X] T006 Create `PipState` enum (values: `unsupported`, `inactive`, `entering`, `active`, `exiting`) with `///` doc comment on each value in `livekit_pip/lib/src/pip_state.dart`
+- [X] T007 [P] Create `LiveKitPipConfiguration`, `AndroidPipConfiguration`, and `IosPipConfiguration` immutable classes with all fields and defaults from `specs/001-livekit-pip-plugin/contracts/dart-api.md` in `livekit_pip/lib/src/pip_configuration.dart`
+- [X] T008 Create abstract `LivekitPipPlatform` with method stubs for `isSupported`, `initialize`, `enterPip`, `exitPip`, `dispose`, `updateActiveTrack`, and `stateStream` getter in `livekit_pip_platform_interface/lib/src/livekit_pip_platform.dart`
+- [X] T009 Create `MethodChannelLivekitPip` stub extending `LivekitPipPlatform` (all methods throw `UnimplementedError` initially) in `livekit_pip_platform_interface/lib/src/method_channel_livekit_pip.dart`
 - [X] T010 Write Pigeon schema (`PipInitRequest`, `LiveKitPipHostApi`) in `livekit_pip_android/pigeons/messages.dart` exactly per `specs/001-livekit-pip-plugin/contracts/native-bridge.md`
 - [X] T011 [P] Write Pigeon schema (`PipInitRequest`, `LiveKitPipHostApi`) in `livekit_pip_ios/pigeons/messages.dart` exactly per `specs/001-livekit-pip-plugin/contracts/native-bridge.md`
 - [X] T012 Regenerate Android Pigeon bindings: run `dart run pigeon --input pigeons/messages.dart` from `livekit_pip_android/`; confirm `Messages.g.kt` is updated and not hand-edited
 - [X] T013 Regenerate iOS Pigeon bindings: run `dart run pigeon --input pigeons/messages.dart` from `livekit_pip_ios/`; confirm `Messages.g.swift` is updated and not hand-edited
-- [ ] T014 [P] Create `LiveKitPip` class skeleton with all public methods from `specs/001-livekit-pip-plugin/contracts/dart-api.md` (stub bodies throw `UnimplementedError`; add `_disposed` bool and `_stateController` StreamController) in `livekit_pip/lib/src/livekit_pip.dart`
-- [ ] T015 [P] Create `LiveKitPipView` widget skeleton (returns `SizedBox.shrink()` for now; `///` doc comment explaining iOS vs Android behavior) in `livekit_pip/lib/src/livekit_pip_view.dart`
+- [X] T014 [P] Create `LiveKitPip` class skeleton with all public methods from `specs/001-livekit-pip-plugin/contracts/dart-api.md` (stub bodies throw `UnimplementedError`; add `_disposed` bool and `_stateController` StreamController) in `livekit_pip/lib/src/livekit_pip.dart`
+- [X] T015 [P] Create `LiveKitPipView` widget skeleton (returns `SizedBox.shrink()` for now; `///` doc comment explaining iOS vs Android behavior) in `livekit_pip/lib/src/livekit_pip_view.dart`
 - [ ] T016 Register `LiveKitPipHostApi` (Pigeon) and EventChannel `livekit_pip/state` (with inline comment "EventChannel: Pigeon does not model push streams") in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
 - [ ] T017 Register `LiveKitPipHostApi` (Pigeon) and EventChannel `livekit_pip/state` (with inline comment "EventChannel: Pigeon does not model push streams") in `livekit_pip_ios/ios/livekit_pip_ios/Sources/livekit_pip_ios/LiveKitPipPlugin.swift`
 - [ ] T018 Register `livekit_pip_view` platform view factory in `livekit_pip_ios/ios/livekit_pip_ios/Sources/livekit_pip_ios/LiveKitPipPlugin.swift` (returns `PipPlatformView`)
