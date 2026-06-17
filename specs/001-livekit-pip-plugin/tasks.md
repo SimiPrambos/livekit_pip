@@ -64,7 +64,7 @@ stories depend on. No user story work begins until this phase is complete.
 - [X] T013 Regenerate iOS Pigeon bindings: run `dart run pigeon --input pigeons/messages.dart` from `livekit_pip_ios/`; confirm `Messages.g.swift` is updated and not hand-edited
 - [X] T014 [P] Create `LiveKitPip` class skeleton with all public methods from `specs/001-livekit-pip-plugin/contracts/dart-api.md` (stub bodies throw `UnimplementedError`; add `_disposed` bool and `_stateController` StreamController) in `livekit_pip/lib/src/livekit_pip.dart`
 - [X] T015 [P] Create `LiveKitPipView` widget skeleton (returns `SizedBox.shrink()` for now; `///` doc comment explaining iOS vs Android behavior) in `livekit_pip/lib/src/livekit_pip_view.dart`
-- [ ] T016 Register `LiveKitPipHostApi` (Pigeon) and EventChannel `livekit_pip/state` (with inline comment "EventChannel: Pigeon does not model push streams") in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
+- [X] T016 Register `LiveKitPipHostApi` (Pigeon) and EventChannel `livekit_pip/state` (with inline comment "EventChannel: Pigeon does not model push streams") in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
 - [ ] T017 Register `LiveKitPipHostApi` (Pigeon) and EventChannel `livekit_pip/state` (with inline comment "EventChannel: Pigeon does not model push streams") in `livekit_pip_ios/ios/livekit_pip_ios/Sources/livekit_pip_ios/LiveKitPipPlugin.swift`
 - [ ] T018 Register `livekit_pip_view` platform view factory in `livekit_pip_ios/ios/livekit_pip_ios/Sources/livekit_pip_ios/LiveKitPipPlugin.swift` (returns `PipPlatformView`)
 - [ ] T019 Write unit tests for `PipState` transition invariants (all valid transitions from data-model.md, unsupported is terminal, entering always followed by active, exiting always followed by inactive) in `livekit_pip/test/pip_state_test.dart` — these MUST fail before T020
@@ -95,14 +95,14 @@ call, press home, confirm PiP window appears within 500 ms. See quickstart.md §
 
 ### Android Native — US1
 
-- [ ] T028 [P] [US1] Implement `PipHostApiImpl.isSupported()` — return `Build.VERSION.SDK_INT >= Build.VERSION_CODES.O` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
-- [ ] T029 [P] [US1] Implement `PipHostApiImpl.initialize()` — store `PipInitRequest` fields (aspect ratio from `videoWidth`/`videoHeight`, fall back to 16:9 if 0); store `autoEnterOnBackground` flag in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
-- [ ] T030 [US1] Implement `PipHelper.buildParams()` — `PictureInPictureParams.Builder` with `setAspectRatio(Rational(w, h))` and `setSourceRectHint(view.globalVisibleRect)` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipHelper.kt`
-- [ ] T031 [US1] Implement API 31+ auto-enter path in `PipHelper.attach()` — call `activity.setPictureInPictureParams(params.setAutoEnterEnabled(true))` in `onResume`; check `SDK_INT >= 31` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipHelper.kt`
-- [ ] T032 [US1] Implement API 26–30 manual enter path in `PipHelper` — override `onUserLeaveHint()` to call `activity.enterPictureInPictureMode(params)` when `autoEnterOnBackground = true` and `SDK_INT < 31` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipHelper.kt`
-- [ ] T033 [US1] Implement `PipHostApiImpl.enterPip()` and `exitPip()` — call `activity.enterPictureInPictureMode(params)` / `activity.moveTaskToBack(false)` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
-- [ ] T034 [US1] Forward `onPictureInPictureModeChanged` to EventChannel `livekit_pip/state` — emit `2` (entering) then `3` (active) on enter; emit `4` (exiting) then `1` (inactive) on exit in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
-- [ ] T035 [US1] Implement `LiveKitPipActivity` convenience class — extends `FlutterActivity`; overrides `onUserLeaveHint` and `onPictureInPictureModeChanged`; delegates to `PipHelper` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/LiveKitPipActivity.kt`
+- [X] T028 [P] [US1] Implement `PipHostApiImpl.isSupported()` — return `Build.VERSION.SDK_INT >= Build.VERSION_CODES.O` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
+- [X] T029 [P] [US1] Implement `PipHostApiImpl.initialize()` — store `PipInitRequest` fields (aspect ratio from `videoWidth`/`videoHeight`, fall back to 16:9 if 0); store `autoEnterOnBackground` flag in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
+- [X] T030 [US1] Implement `PipHelper.buildParams()` — `PictureInPictureParams.Builder` with `setAspectRatio(Rational(w, h))` and `setSourceRectHint(view.globalVisibleRect)` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipHelper.kt`
+- [X] T031 [US1] Implement API 31+ auto-enter path in `PipHelper.attach()` — call `activity.setPictureInPictureParams(params.setAutoEnterEnabled(true))` in `onResume`; check `SDK_INT >= 31` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipHelper.kt`
+- [X] T032 [US1] Implement API 26–30 manual enter path in `PipHelper` — override `onUserLeaveHint()` to call `activity.enterPictureInPictureMode(params)` when `autoEnterOnBackground = true` and `SDK_INT < 31` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipHelper.kt`
+- [X] T033 [US1] Implement `PipHostApiImpl.enterPip()` and `exitPip()` — call `activity.enterPictureInPictureMode(params)` / `activity.moveTaskToBack(false)` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
+- [X] T034 [US1] Forward `onPictureInPictureModeChanged` to EventChannel `livekit_pip/state` — emit `2` (entering) then `3` (active) on enter; emit `4` (exiting) then `1` (inactive) on exit in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
+- [X] T035 [US1] Implement `LiveKitPipActivity` convenience class — extends `FlutterActivity`; overrides `onUserLeaveHint` and `onPictureInPictureModeChanged`; delegates to `PipHelper` in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/LiveKitPipActivity.kt`
 
 ### iOS Native — US1
 
