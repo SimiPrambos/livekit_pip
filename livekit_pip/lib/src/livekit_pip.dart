@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:livekit_client/livekit_client.dart';
+import 'package:livekit_pip/src/active_speaker_selector.dart';
 import 'package:livekit_pip/src/pip_configuration.dart';
 import 'package:livekit_pip/src/pip_state.dart';
 import 'package:livekit_pip_platform_interface/livekit_pip_platform_interface.dart';
@@ -13,16 +14,13 @@ class LiveKitPip {
       StreamController<PipState>.broadcast();
 
   StreamSubscription<int>? _stateSubscription;
+  ActiveSpeakerSelector? _speakerSelector;
 
   bool _initialized = false;
   bool _disposed = false;
   bool _supported = false;
 
-  // Stored for future use in ActiveSpeakerSelector wiring (T048/T050).
-  // ignore: unused_field
-  Room? _room;
-
-  // Stored for future use in screen-sharing suppression (T059).
+  // Stored for screen-sharing suppression (T059).
   // ignore: unused_field
   LiveKitPipConfiguration? _config;
 
@@ -53,8 +51,15 @@ class LiveKitPip {
         'PiP is not supported on this device (isSupported() returned false)',
       );
     }
-    _room = room;
     _config = config;
+    _speakerSelector = ActiveSpeakerSelector(
+      room: room,
+      onTrackChanged: (trackId) {
+        if (trackId != null && _initialized && !_disposed) {
+          LivekitPipPlatform.instance.updateActiveTrack(trackId);
+        }
+      },
+    );
     await LivekitPipPlatform.instance.initialize(
       enabled: config.enabled,
       disableWhenScreenSharing: config.disableWhenScreenSharing,
@@ -98,11 +103,12 @@ class LiveKitPip {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    await _speakerSelector?.dispose();
+    _speakerSelector = null;
     await _stateSubscription?.cancel();
     _stateSubscription = null;
     await LivekitPipPlatform.instance.dispose();
     await _stateController.close();
-    _room = null;
     _config = null;
     _initialized = false;
   }
