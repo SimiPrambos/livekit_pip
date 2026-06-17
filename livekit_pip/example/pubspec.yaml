@@ -29,3 +29,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+# connectivity_plus 7.1.1 uses NWPath.isUltraConstrained (iOS 26 SDK only),
+# which causes a compile error on Xcode without the iOS 26 SDK.
+# Pin to 7.0.2 which is still compatible with livekit_client's ^7.0.0 constraint.
+dependency_overrides:
+  connectivity_plus: 7.0.0
