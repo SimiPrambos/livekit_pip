@@ -124,7 +124,9 @@ class FrameBridge: NSObject {
 
     private func makeSampleBuffer(from pixelBuffer: CVPixelBuffer) -> CMSampleBuffer? {
         var formatDesc: CMVideoFormatDescription?
-        CMVideoFormatDescriptionCreateForImageBuffer(nil, pixelBuffer, &formatDesc)
+        CMVideoFormatDescriptionCreateForImageBuffer(
+            allocator: nil, imageBuffer: pixelBuffer, formatDescriptionOut: &formatDesc
+        )
         guard let fd = formatDesc else { return nil }
         var timing = CMSampleTimingInfo(
             duration: CMTime(value: 1, timescale: 30),
