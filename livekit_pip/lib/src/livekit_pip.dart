@@ -55,7 +55,7 @@ class LiveKitPip {
       room: room,
       onTrackChanged: (trackId) {
         if (trackId != null && _initialized && !_disposed) {
-          LivekitPipPlatform.instance.updateActiveTrack(trackId);
+          unawaited(LivekitPipPlatform.instance.updateActiveTrack(trackId));
         }
       },
     );
@@ -64,7 +64,7 @@ class LiveKitPip {
         if (!_disposed && _initialized) {
           if (_currentState == PipState.active ||
               _currentState == PipState.entering) {
-            LivekitPipPlatform.instance.exitPip();
+            unawaited(LivekitPipPlatform.instance.exitPip());
           }
         }
       });

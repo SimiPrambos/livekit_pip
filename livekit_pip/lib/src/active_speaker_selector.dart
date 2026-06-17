@@ -1,7 +1,7 @@
 import 'package:livekit_client/livekit_client.dart';
 
 /// Subscribes to Room events and tracks the dominant remote speaker's video
-/// track ID, calling [onTrackChanged] whenever the dominant track changes.
+/// track ID, calling `onTrackChanged` whenever the dominant track changes.
 ///
 /// Also tracks local camera state and screen-sharing state for use by the
 /// native layer (iOS compositor, PiP suppression).

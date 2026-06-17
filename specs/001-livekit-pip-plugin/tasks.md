@@ -175,10 +175,10 @@ sharing suppresses PiP, call-end during PiP cleans up, dispose() leaves no leaks
 
 **Purpose**: Quality gates, documentation, and final validation.
 
-- [ ] T068 [P] Add `///` doc comments to all public Dart symbols in `livekit_pip/lib/src/*.dart` and `livekit_pip_platform_interface/lib/src/*.dart` per constitution Principle I
-- [ ] T069 [P] Run `flutter analyze` from each of the 4 package roots and fix all warnings to zero; no `// ignore:` without inline explanation in `livekit_pip/`, `livekit_pip_platform_interface/`, `livekit_pip_android/`, `livekit_pip_ios/`
-- [ ] T070 [P] Verify `LiveKitPipConfiguration` minimum integration is ≤20 lines — count lines in `specs/001-livekit-pip-plugin/contracts/dart-api.md` "Minimum Integration" example against a fresh example app page; adjust API if count exceeds 20 (SC-001)
-- [ ] T071 Run `flutter test` in all 4 packages (from their respective roots) and confirm zero failures
+- [X] T068 [P] Add `///` doc comments to all public Dart symbols in `livekit_pip/lib/src/*.dart` and `livekit_pip_platform_interface/lib/src/*.dart` per constitution Principle I
+- [X] T069 [P] Run `flutter analyze` from each of the 4 package roots and fix all warnings to zero; no `// ignore:` without inline explanation in `livekit_pip/`, `livekit_pip_platform_interface/`, `livekit_pip_android/`, `livekit_pip_ios/`
+- [X] T070 [P] Verify `LiveKitPipConfiguration` minimum integration is ≤20 lines — count lines in `specs/001-livekit-pip-plugin/contracts/dart-api.md` "Minimum Integration" example against a fresh example app page; adjust API if count exceeds 20 (SC-001)
+- [X] T071 Run `flutter test` in all 4 packages (from their respective roots) and confirm zero failures
 - [ ] T072 Run `fluttium test flows/test_pip_enter.yaml -d <device>`, `flows/test_speaker_switch.yaml -d <device>`, `flows/test_edge_cases.yaml -d <device>` from `livekit_pip/example/` on a physical iOS device and Android device
 - [ ] T073 Manual validation of all quickstart.md scenarios on both Android device and iOS physical device; document results inline in `specs/001-livekit-pip-plugin/quickstart.md` under each scenario
 
