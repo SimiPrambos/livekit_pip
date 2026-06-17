@@ -1,0 +1,25 @@
+name: livekit_pip_android
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/livekit_pip_android.yaml"
+      - "livekit_pip_android/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/livekit_pip_android.yaml"
+      - "livekit_pip_android/**"
+
+jobs:
+  build:
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/flutter_package.yml@v1
+    with:
+      flutter_version: 3.41.1
+      working_directory: livekit_pip_android
+

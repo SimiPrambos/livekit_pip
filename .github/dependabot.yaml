@@ -1,0 +1,27 @@
+version: 2
+enable-beta-ecosystems: true
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "pub"
+    directory: "/livekit_pip"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "pub"
+    directory: "/livekit_pip/example"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "pub"
+    directory: "/livekit_pip_platform_interface"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "pub"
+    directory: "/livekit_pip_android"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "pub"
+    directory: "/livekit_pip_ios"
+    schedule:
+      interval: "daily"

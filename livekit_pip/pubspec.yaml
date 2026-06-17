@@ -1,0 +1,32 @@
+name: livekit_pip
+description: A Very Good Project created by Very Good CLI.
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        default_package: livekit_pip_android
+      ios:
+        default_package: livekit_pip_ios
+
+dependencies:
+  flutter:
+    sdk: flutter
+  livekit_pip_android:
+    path: ../livekit_pip_android
+  livekit_pip_ios:
+    path: ../livekit_pip_ios
+  livekit_pip_platform_interface:
+    path: ../livekit_pip_platform_interface
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.5
+  plugin_platform_interface: ^2.1.8
+  very_good_analysis: ^10.2.0
