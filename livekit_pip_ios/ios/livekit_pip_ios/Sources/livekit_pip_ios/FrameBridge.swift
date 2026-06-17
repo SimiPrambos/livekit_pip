@@ -19,8 +19,7 @@ class FrameBridge: NSObject {
     private var localCameraActive = false
     private let compositor = PixelBufferCompositor()
 
-    // Renderer stubs held so ARC keeps them alive
-    private var dominantRenderer: _DominantRenderer?
+    // Held so ARC keeps the local-camera renderer alive
     private var localRenderer: _LocalRenderer?
 
     init(
