@@ -35,6 +35,138 @@ Object? _extractReplyValueOrThrow(
   return replyList.firstOrNull;
 }
 
+bool _deepEquals(Object? a, Object? b) {
+  if (identical(a, b)) {
+    return true;
+  }
+  if (a is double && b is double) {
+    if (a.isNaN && b.isNaN) {
+      return true;
+    }
+    return a == b;
+  }
+  if (a is List && b is List) {
+    return a.length == b.length &&
+        a.indexed
+            .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+  }
+  if (a is Map && b is Map) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (final MapEntry<Object?, Object?> entryA in a.entries) {
+      bool found = false;
+      for (final MapEntry<Object?, Object?> entryB in b.entries) {
+        if (_deepEquals(entryA.key, entryB.key)) {
+          if (_deepEquals(entryA.value, entryB.value)) {
+            found = true;
+            break;
+          } else {
+            return false;
+          }
+        }
+      }
+      if (!found) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return a == b;
+}
+
+int _deepHash(Object? value) {
+  if (value is List) {
+    return Object.hashAll(value.map(_deepHash));
+  }
+  if (value is Map) {
+    int result = 0;
+    for (final MapEntry<Object?, Object?> entry in value.entries) {
+      result += (_deepHash(entry.key) * 31) ^ _deepHash(entry.value);
+    }
+    return result;
+  }
+  if (value is double && value.isNaN) {
+    // Normalize NaN to a consistent hash.
+    return 0x7FF8000000000000.hashCode;
+  }
+  if (value is double && value == 0.0) {
+    // Normalize -0.0 to 0.0 so they have the same hash code.
+    return 0.0.hashCode;
+  }
+  return value.hashCode;
+}
+
+
+class PipInitRequest {
+  PipInitRequest({
+    this.enabled = true,
+    this.disableWhenScreenSharing = true,
+    this.androidAutoEnterOnBackground = true,
+    this.iosAutoEnterOnBackground = true,
+    this.iosIncludeLocalParticipantVideo = true,
+    this.videoWidth = 0,
+    this.videoHeight = 0,
+  });
+
+  bool enabled;
+
+  bool disableWhenScreenSharing;
+
+  bool androidAutoEnterOnBackground;
+
+  bool iosAutoEnterOnBackground;
+
+  bool iosIncludeLocalParticipantVideo;
+
+  int videoWidth;
+
+  int videoHeight;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      enabled,
+      disableWhenScreenSharing,
+      androidAutoEnterOnBackground,
+      iosAutoEnterOnBackground,
+      iosIncludeLocalParticipantVideo,
+      videoWidth,
+      videoHeight,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PipInitRequest decode(Object result) {
+    result as List<Object?>;
+    return PipInitRequest(
+      enabled: result[0]! as bool,
+      disableWhenScreenSharing: result[1]! as bool,
+      androidAutoEnterOnBackground: result[2]! as bool,
+      iosAutoEnterOnBackground: result[3]! as bool,
+      iosIncludeLocalParticipantVideo: result[4]! as bool,
+      videoWidth: result[5]! as int,
+      videoHeight: result[6]! as int,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PipInitRequest || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(enabled, other.enabled) && _deepEquals(disableWhenScreenSharing, other.disableWhenScreenSharing) && _deepEquals(androidAutoEnterOnBackground, other.androidAutoEnterOnBackground) && _deepEquals(iosAutoEnterOnBackground, other.iosAutoEnterOnBackground) && _deepEquals(iosIncludeLocalParticipantVideo, other.iosIncludeLocalParticipantVideo) && _deepEquals(videoWidth, other.videoWidth) && _deepEquals(videoHeight, other.videoHeight);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+}
 
 
 class _PigeonCodec extends StandardMessageCodec {
@@ -44,6 +176,9 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
+    }    else if (value is PipInitRequest) {
+      buffer.putUint8(129);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -52,17 +187,19 @@ class _PigeonCodec extends StandardMessageCodec {
   @override
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
+      case 129:
+        return PipInitRequest.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
   }
 }
 
-class LivekitPipApi {
-  /// Constructor for [LivekitPipApi].  The [binaryMessenger] named argument is
+class LiveKitPipHostApi {
+  /// Constructor for [LiveKitPipHostApi].  The [binaryMessenger] named argument is
   /// available for dependency injection.  If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  LivekitPipApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
+  LiveKitPipHostApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
       : pigeonVar_binaryMessenger = binaryMessenger,
         pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
@@ -71,8 +208,80 @@ class LivekitPipApi {
 
   final String pigeonVar_messageChannelSuffix;
 
-  Future<String?> getPlatformName() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip.LivekitPipApi.getPlatformName$pigeonVar_messageChannelSuffix';
+  Future<void> initialize(PipInitRequest request) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.initialize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  Future<void> enterPip() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.enterPip$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  Future<void> exitPip() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.exitPip$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  Future<void> dispose() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.dispose$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  Future<bool> isSupported() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.isSupported$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -84,9 +293,27 @@ class LivekitPipApi {
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
         pigeonVar_replyList,
         pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
+    return pigeonVar_replyValue! as bool;
+  }
+
+  Future<void> updateActiveTrack(String trackId) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.updateActiveTrack$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[trackId]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
         isNullValid: true,
     )
     ;
-    return pigeonVar_replyValue as String?;
   }
 }

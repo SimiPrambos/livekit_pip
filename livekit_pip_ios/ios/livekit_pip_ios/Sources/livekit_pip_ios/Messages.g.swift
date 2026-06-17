@@ -65,11 +65,197 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   return value as! T?
 }
 
+private func doubleEqualsMessages(_ lhs: Double, _ rhs: Double) -> Bool {
+  return (lhs.isNaN && rhs.isNaN) || lhs == rhs
+}
+
+private func doubleHashMessages(_ value: Double, _ hasher: inout Hasher) {
+  if value.isNaN {
+    hasher.combine(0x7FF8000000000000)
+  } else {
+    // Normalize -0.0 to 0.0
+    hasher.combine(value == 0 ? 0 : value)
+  }
+}
+
+func deepEqualsMessages(_ lhs: Any?, _ rhs: Any?) -> Bool {
+  let cleanLhs = nilOrValue(lhs) as Any?
+  let cleanRhs = nilOrValue(rhs) as Any?
+  switch (cleanLhs, cleanRhs) {
+  case (nil, nil):
+    return true
+
+  case (nil, _), (_, nil):
+    return false
+
+  case (let lhs as AnyObject, let rhs as AnyObject) where lhs === rhs:
+    return true
+
+  case is (Void, Void):
+    return true
+
+  case (let lhsArray, let rhsArray) as ([Any?], [Any?]):
+    guard lhsArray.count == rhsArray.count else { return false }
+    for (index, element) in lhsArray.enumerated() {
+      if !deepEqualsMessages(element, rhsArray[index]) {
+        return false
+      }
+    }
+    return true
+
+  case (let lhsArray, let rhsArray) as ([Double], [Double]):
+    guard lhsArray.count == rhsArray.count else { return false }
+    for (index, element) in lhsArray.enumerated() {
+      if !doubleEqualsMessages(element, rhsArray[index]) {
+        return false
+      }
+    }
+    return true
+
+  case (let lhsDictionary, let rhsDictionary) as ([AnyHashable: Any?], [AnyHashable: Any?]):
+    guard lhsDictionary.count == rhsDictionary.count else { return false }
+    for (lhsKey, lhsValue) in lhsDictionary {
+      var found = false
+      for (rhsKey, rhsValue) in rhsDictionary {
+        if deepEqualsMessages(lhsKey, rhsKey) {
+          if deepEqualsMessages(lhsValue, rhsValue) {
+            found = true
+            break
+          } else {
+            return false
+          }
+        }
+      }
+      if !found { return false }
+    }
+    return true
+
+  case (let lhs as Double, let rhs as Double):
+    return doubleEqualsMessages(lhs, rhs)
+
+  case (let lhsHashable, let rhsHashable) as (AnyHashable, AnyHashable):
+    return lhsHashable == rhsHashable
+
+  default:
+    return false
+  }
+}
+
+func deepHashMessages(value: Any?, hasher: inout Hasher) {
+  let cleanValue = nilOrValue(value) as Any?
+  if let cleanValue = cleanValue {
+    if let doubleValue = cleanValue as? Double {
+      doubleHashMessages(doubleValue, &hasher)
+    } else if let valueList = cleanValue as? [Any?] {
+      for item in valueList {
+        deepHashMessages(value: item, hasher: &hasher)
+      }
+    } else if let valueList = cleanValue as? [Double] {
+      for item in valueList {
+        doubleHashMessages(item, &hasher)
+      }
+    } else if let valueDict = cleanValue as? [AnyHashable: Any?] {
+      var result = 0
+      for (key, value) in valueDict {
+        var entryKeyHasher = Hasher()
+        deepHashMessages(value: key, hasher: &entryKeyHasher)
+        var entryValueHasher = Hasher()
+        deepHashMessages(value: value, hasher: &entryValueHasher)
+        result = result &+ ((entryKeyHasher.finalize() &* 31) ^ entryValueHasher.finalize())
+      }
+      hasher.combine(result)
+    } else if let hashableValue = cleanValue as? AnyHashable {
+      hasher.combine(hashableValue)
+    } else {
+      hasher.combine(String(describing: cleanValue))
+    }
+  } else {
+    hasher.combine(0)
+  }
+}
+
+
+/// Generated class from Pigeon that represents data sent in messages.
+struct PipInitRequest: Hashable {
+  var enabled: Bool
+  var disableWhenScreenSharing: Bool
+  var androidAutoEnterOnBackground: Bool
+  var iosAutoEnterOnBackground: Bool
+  var iosIncludeLocalParticipantVideo: Bool
+  var videoWidth: Int64
+  var videoHeight: Int64
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> PipInitRequest? {
+    let enabled = pigeonVar_list[0] as! Bool
+    let disableWhenScreenSharing = pigeonVar_list[1] as! Bool
+    let androidAutoEnterOnBackground = pigeonVar_list[2] as! Bool
+    let iosAutoEnterOnBackground = pigeonVar_list[3] as! Bool
+    let iosIncludeLocalParticipantVideo = pigeonVar_list[4] as! Bool
+    let videoWidth = pigeonVar_list[5] as! Int64
+    let videoHeight = pigeonVar_list[6] as! Int64
+
+    return PipInitRequest(
+      enabled: enabled,
+      disableWhenScreenSharing: disableWhenScreenSharing,
+      androidAutoEnterOnBackground: androidAutoEnterOnBackground,
+      iosAutoEnterOnBackground: iosAutoEnterOnBackground,
+      iosIncludeLocalParticipantVideo: iosIncludeLocalParticipantVideo,
+      videoWidth: videoWidth,
+      videoHeight: videoHeight
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      enabled,
+      disableWhenScreenSharing,
+      androidAutoEnterOnBackground,
+      iosAutoEnterOnBackground,
+      iosIncludeLocalParticipantVideo,
+      videoWidth,
+      videoHeight,
+    ]
+  }
+  static func == (lhs: PipInitRequest, rhs: PipInitRequest) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return deepEqualsMessages(lhs.enabled, rhs.enabled) && deepEqualsMessages(lhs.disableWhenScreenSharing, rhs.disableWhenScreenSharing) && deepEqualsMessages(lhs.androidAutoEnterOnBackground, rhs.androidAutoEnterOnBackground) && deepEqualsMessages(lhs.iosAutoEnterOnBackground, rhs.iosAutoEnterOnBackground) && deepEqualsMessages(lhs.iosIncludeLocalParticipantVideo, rhs.iosIncludeLocalParticipantVideo) && deepEqualsMessages(lhs.videoWidth, rhs.videoWidth) && deepEqualsMessages(lhs.videoHeight, rhs.videoHeight)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("PipInitRequest")
+    deepHashMessages(value: enabled, hasher: &hasher)
+    deepHashMessages(value: disableWhenScreenSharing, hasher: &hasher)
+    deepHashMessages(value: androidAutoEnterOnBackground, hasher: &hasher)
+    deepHashMessages(value: iosAutoEnterOnBackground, hasher: &hasher)
+    deepHashMessages(value: iosIncludeLocalParticipantVideo, hasher: &hasher)
+    deepHashMessages(value: videoWidth, hasher: &hasher)
+    deepHashMessages(value: videoHeight, hasher: &hasher)
+  }
+}
 
 private class MessagesPigeonCodecReader: FlutterStandardReader {
+  override func readValue(ofType type: UInt8) -> Any? {
+    switch type {
+    case 129:
+      return PipInitRequest.fromList(self.readValue() as! [Any?])
+    default:
+      return super.readValue(ofType: type)
+    }
+  }
 }
 
 private class MessagesPigeonCodecWriter: FlutterStandardWriter {
+  override func writeValue(_ value: Any) {
+    if let value = value as? PipInitRequest {
+      super.writeByte(129)
+      super.writeValue(value.toList())
+    } else {
+      super.writeValue(value)
+    }
+  }
 }
 
 private class MessagesPigeonCodecReaderWriter: FlutterStandardReaderWriter {
@@ -86,32 +272,103 @@ class MessagesPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
   static let shared = MessagesPigeonCodec(readerWriter: MessagesPigeonCodecReaderWriter())
 }
 
-
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
-protocol LivekitPipApi {
-  func getPlatformName(completion: @escaping (Result<String?, Error>) -> Void)
+protocol LiveKitPipHostApi {
+  func initialize(request: PipInitRequest) throws
+  func enterPip() throws
+  func exitPip() throws
+  func dispose() throws
+  func isSupported() throws -> Bool
+  func updateActiveTrack(trackId: String) throws
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
-class LivekitPipApiSetup {
+class LiveKitPipHostApiSetup {
   static var codec: FlutterStandardMessageCodec { MessagesPigeonCodec.shared }
-  /// Sets up an instance of `LivekitPipApi` to handle messages through the `binaryMessenger`.
-  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: LivekitPipApi?, messageChannelSuffix: String = "") {
+  /// Sets up an instance of `LiveKitPipHostApi` to handle messages through the `binaryMessenger`.
+  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: LiveKitPipHostApi?, messageChannelSuffix: String = "") {
     let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
-    let getPlatformNameChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.livekit_pip.LivekitPipApi.getPlatformName\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let initializeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.livekit_pip_ios.LiveKitPipHostApi.initialize\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
-      getPlatformNameChannel.setMessageHandler { _, reply in
-        api.getPlatformName { result in
-          switch result {
-          case .success(let res):
-            reply(wrapResult(res))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
+      initializeChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let requestArg = args[0] as! PipInitRequest
+        do {
+          try api.initialize(request: requestArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
         }
       }
     } else {
-      getPlatformNameChannel.setMessageHandler(nil)
+      initializeChannel.setMessageHandler(nil)
+    }
+    let enterPipChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.livekit_pip_ios.LiveKitPipHostApi.enterPip\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      enterPipChannel.setMessageHandler { _, reply in
+        do {
+          try api.enterPip()
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      enterPipChannel.setMessageHandler(nil)
+    }
+    let exitPipChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.livekit_pip_ios.LiveKitPipHostApi.exitPip\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      exitPipChannel.setMessageHandler { _, reply in
+        do {
+          try api.exitPip()
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      exitPipChannel.setMessageHandler(nil)
+    }
+    let disposeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.livekit_pip_ios.LiveKitPipHostApi.dispose\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      disposeChannel.setMessageHandler { _, reply in
+        do {
+          try api.dispose()
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      disposeChannel.setMessageHandler(nil)
+    }
+    let isSupportedChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.livekit_pip_ios.LiveKitPipHostApi.isSupported\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      isSupportedChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.isSupported()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      isSupportedChannel.setMessageHandler(nil)
+    }
+    let updateActiveTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.livekit_pip_ios.LiveKitPipHostApi.updateActiveTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      updateActiveTrackChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let trackIdArg = args[0] as! String
+        do {
+          try api.updateActiveTrack(trackId: trackIdArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      updateActiveTrackChannel.setMessageHandler(nil)
     }
   }
 }
