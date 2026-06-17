@@ -11,10 +11,17 @@ class FrameBridge: NSObject {
     private let displayLayer: AVSampleBufferDisplayLayer
     private let resolver: NativeTrackResolver
     private var currentTrack: RTCVideoTrack?
+    private var localTrack: RTCVideoTrack?
     private var pixelBufferPool: CVPixelBufferPool?
     private var poolWidth: Int32 = 0
     private var poolHeight: Int32 = 0
     private var includeLocalVideo = true
+    private var localCameraActive = false
+    private let compositor = PixelBufferCompositor()
+
+    // Renderer stubs held so ARC keeps them alive
+    private var dominantRenderer: _DominantRenderer?
+    private var localRenderer: _LocalRenderer?
 
     init(
         displayLayer: AVSampleBufferDisplayLayer,
@@ -39,9 +46,30 @@ class FrameBridge: NSObject {
         }
     }
 
+    /// Binds the local camera track for self-view compositing.
+    func rebindLocalTrack(trackId: String) {
+        if let renderer = localRenderer {
+            localTrack?.remove(renderer)
+        }
+        localTrack = resolver.resolveVideoTrack(trackId: trackId)
+        let renderer = _LocalRenderer(bridge: self)
+        localRenderer = renderer
+        localTrack?.add(renderer)
+        localCameraActive = true
+    }
+
+    func setLocalCameraActive(_ active: Bool) {
+        localCameraActive = active
+    }
+
     func detach() {
         currentTrack?.remove(self)
         currentTrack = nil
+        if let renderer = localRenderer {
+            localTrack?.remove(renderer)
+        }
+        localTrack = nil
+        localRenderer = nil
         pixelBufferPool = nil
     }
 
@@ -62,7 +90,6 @@ class FrameBridge: NSObject {
 
     private func pixelBuffer(from frame: RTCVideoFrame) -> CVPixelBuffer? {
         guard let buffer = frame.buffer as? RTCCVPixelBuffer else {
-            // I420 path — convert to BGRA
             return i420ToBGRA(frame: frame)
         }
         return buffer.pixelBuffer
@@ -78,11 +105,9 @@ class FrameBridge: NSObject {
         guard let dst = pb else { return nil }
         CVPixelBufferLockBaseAddress(dst, [])
         defer { CVPixelBufferUnlockBaseAddress(dst, []) }
-        // Use vImage or a simple byte-copy via RTCI420Buffer
         if let i420 = frame.buffer as? RTCI420Buffer {
             let dstPtr = CVPixelBufferGetBaseAddress(dst)!
             let dstStride = CVPixelBufferGetBytesPerRow(dst)
-            // Basic I420→BGRA conversion (Y-plane only for now; full conversion in production)
             for row in 0..<Int(h) {
                 let srcY = i420.dataY.advanced(by: row * Int(i420.strideY))
                 let dstRow = dstPtr.advanced(by: row * dstStride).assumingMemoryBound(to: UInt8.self)
@@ -120,9 +145,26 @@ class FrameBridge: NSObject {
         )
         return sampleBuffer
     }
+
+    // Called by the local renderer when a self-view frame arrives
+    fileprivate var latestLocalBuffer: CVPixelBuffer?
+
+    fileprivate func enqueue(dominantBuffer: CVPixelBuffer) {
+        let finalBuffer: CVPixelBuffer
+        if includeLocalVideo, localCameraActive, let localBuf = latestLocalBuffer {
+            finalBuffer = compositor.composite(dominant: dominantBuffer, selfView: localBuf)
+        } else {
+            finalBuffer = dominantBuffer
+        }
+        guard let sb = makeSampleBuffer(from: finalBuffer) else { return }
+        if displayLayer.status == .failed {
+            displayLayer.flush()
+        }
+        displayLayer.enqueue(sb)
+    }
 }
 
-// ──── RTCVideoRenderer ─────────────────────────────────────────────────────
+// ──── RTCVideoRenderer (dominant speaker) ─────────────────────────────────
 
 extension FrameBridge: RTCVideoRenderer {
 
@@ -130,12 +172,22 @@ extension FrameBridge: RTCVideoRenderer {
 
     func renderFrame(_ frame: RTCVideoFrame?) {
         guard let frame = frame,
-              let pb = pixelBuffer(from: frame),
-              let sb = makeSampleBuffer(from: pb)
+              let pb = pixelBuffer(from: frame)
         else { return }
-        if displayLayer.status == .failed {
-            displayLayer.flush()
-        }
-        displayLayer.enqueue(sb)
+        enqueue(dominantBuffer: pb)
+    }
+}
+
+// ──── Local camera renderer ────────────────────────────────────────────────
+
+private class _LocalRenderer: NSObject, RTCVideoRenderer {
+    weak var bridge: FrameBridge?
+    init(bridge: FrameBridge) { self.bridge = bridge }
+    func setSize(_ size: CGSize) {}
+    func renderFrame(_ frame: RTCVideoFrame?) {
+        guard let frame = frame,
+              let buffer = frame.buffer as? RTCCVPixelBuffer
+        else { return }
+        bridge?.latestLocalBuffer = buffer.pixelBuffer
     }
 }

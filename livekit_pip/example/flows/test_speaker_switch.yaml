@@ -1,0 +1,35 @@
+description: US2 – Active speaker switching and self-view compositing
+---
+# Scenario 2a: speaker switches are forwarded to native
+- step: "Launch app"
+  action: launchApp
+
+- step: "Initialize PiP"
+  action: tapOn
+  text: "Initialize PiP"
+
+- step: "PiP state shows inactive after init"
+  action: expectVisible
+  text: "PiP state: inactive"
+
+# Scenario 2b: self-view included by default
+- step: "Enter PiP mode"
+  action: tapOn
+  text: "Enter PiP"
+
+- step: "PiP becomes active"
+  action: expectVisible
+  text: "PiP state: active"
+
+# Scenario 2c: exit and dispose
+- step: "Exit PiP"
+  action: tapOn
+  text: "Exit PiP"
+
+- step: "PiP returns to inactive"
+  action: expectVisible
+  text: "PiP state: inactive"
+
+- step: "Dispose controller"
+  action: tapOn
+  text: "Dispose"
