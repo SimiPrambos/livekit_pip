@@ -13,16 +13,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'livekit_pip Example',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: ThemeData.dark(useMaterial3: true),
       home: const ConnectPage(),
     );
   }
 }
 
-// ──── Connect Page ───────────────────────────────────────────────────────
+// ──── Connect Page ──────────────────────────────────────────────────────
 
 class ConnectPage extends StatefulWidget {
   const ConnectPage({super.key});
@@ -49,25 +46,23 @@ class _ConnectPageState extends State<ConnectPage> {
     final url = _urlController.text.trim();
     final token = _tokenController.text.trim();
     if (url.isEmpty || token.isEmpty) return;
-
     setState(() => _connecting = true);
     try {
       final room = Room();
       await room.connect(url, token);
+      await room.localParticipant?.setCameraEnabled(true);
+      await room.localParticipant?.setMicrophoneEnabled(true);
       if (!mounted) {
         await room.disconnect();
         return;
       }
       await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CallPage(room: room),
-        ),
+        MaterialPageRoute<void>(builder: (_) => CallPage(room: room)),
       );
     } on Exception catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connect failed: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Connect failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _connecting = false);
@@ -106,7 +101,7 @@ class _ConnectPageState extends State<ConnectPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'lk token create --join --room my-room --identity user1',
+              'Generate: node scripts/gen_tokens.mjs my-room',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 24),
@@ -127,7 +122,7 @@ class _ConnectPageState extends State<ConnectPage> {
   }
 }
 
-// ──── Call Page ──────────────────────────────────────────────────────────
+// ──── Call Page ─────────────────────────────────────────────────────────
 
 class CallPage extends StatefulWidget {
   const CallPage({required this.room, super.key});
@@ -139,58 +134,55 @@ class CallPage extends StatefulWidget {
 }
 
 class _CallPageState extends State<CallPage> {
+  late final EventsListener<RoomEvent> _listener;
   late LiveKitPip _pip;
 
-  bool? _supported;
   PipState _pipState = PipState.inactive;
-  bool _initialized = false;
+  bool _pipInitialized = false;
+  bool? _pipSupported;
   StreamSubscription<PipState>? _stateSub;
 
   @override
   void initState() {
     super.initState();
     _pip = LiveKitPip();
-    unawaited(_checkSupport());
+    _listener = widget.room.createListener()
+      ..on<ParticipantConnectedEvent>((_) => setState(() {}))
+      ..on<ParticipantDisconnectedEvent>((_) => setState(() {}))
+      ..on<TrackSubscribedEvent>((_) => setState(() {}))
+      ..on<TrackUnsubscribedEvent>((_) => setState(() {}))
+      ..on<TrackMutedEvent>((_) => setState(() {}))
+      ..on<TrackUnmutedEvent>((_) => setState(() {}))
+      ..on<LocalTrackPublishedEvent>((_) => setState(() {}))
+      ..on<LocalTrackUnpublishedEvent>((_) => setState(() {}));
+    unawaited(_init());
   }
 
-  Future<void> _checkSupport() async {
+  Future<void> _init() async {
     final supported = await _pip.isSupported();
-    if (mounted) setState(() => _supported = supported);
+    if (!mounted) return;
+    setState(() => _pipSupported = supported);
+    await _initPip();
   }
 
-  Future<void> _initializePip() async {
+  Future<void> _initPip() async {
+    if (_pipInitialized) return;
     try {
       await _pip.initialize(
         room: widget.room,
         config: LiveKitPipConfiguration(
           android: AndroidPipConfiguration(
-            pipWidgetBuilder: (ctx, room) => _AndroidPipContent(room: room),
+            pipWidgetBuilder: (ctx, room) => const _AndroidPipContent(),
           ),
           ios: const IosPipConfiguration(),
         ),
       );
-      _stateSub = _pip.stateStream.listen((state) {
-        if (mounted) setState(() => _pipState = state);
+      _stateSub = _pip.stateStream.listen((s) {
+        if (mounted) setState(() => _pipState = s);
       });
-      if (mounted) setState(() => _initialized = true);
+      if (mounted) setState(() => _pipInitialized = true);
     } on Exception catch (e) {
-      _showError('$e');
-    }
-  }
-
-  Future<void> _enterPip() async {
-    try {
-      await _pip.enterPiP();
-    } on Exception catch (e) {
-      _showError('$e');
-    }
-  }
-
-  Future<void> _exitPip() async {
-    try {
-      await _pip.exitPiP();
-    } on Exception catch (e) {
-      _showError('$e');
+      debugPrint('[livekit_pip] initialize failed: $e');
     }
   }
 
@@ -200,9 +192,9 @@ class _CallPageState extends State<CallPage> {
     await _pip.dispose();
     if (mounted) {
       setState(() {
-        _initialized = false;
+        _pipInitialized = false;
         _pipState = PipState.inactive;
-        _pip = LiveKitPip(); // fresh instance — disposed one cannot be reused
+        _pip = LiveKitPip();
       });
     }
   }
@@ -213,78 +205,113 @@ class _CallPageState extends State<CallPage> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
   @override
   void dispose() {
-    unawaited(_disposePip());
+    final sub = _stateSub;
+    if (sub != null) unawaited(sub.cancel());
+    unawaited(_pip.dispose());
+    unawaited(_listener.dispose());
     unawaited(widget.room.disconnect());
     super.dispose();
   }
 
+  // ── Video helpers ─────────────────────────────────────────────────────────
+
+  VideoTrack? _localVideo() {
+    final local = widget.room.localParticipant;
+    if (local == null) return null;
+    for (final pub in local.videoTrackPublications) {
+      if (pub.source == TrackSource.camera && !pub.muted) {
+        return pub.track;
+      }
+    }
+    return null;
+  }
+
+  List<_ParticipantVideo> _remoteVideos() {
+    final result = <_ParticipantVideo>[];
+    for (final p in widget.room.remoteParticipants.values) {
+      for (final pub in p.videoTrackPublications) {
+        if (pub.source == TrackSource.camera && !pub.muted) {
+          final t = pub.track;
+          if (t != null) {
+            result.add(_ParticipantVideo(
+              name: p.name.isNotEmpty ? p.name : p.identity,
+              track: t,
+            ));
+          }
+        }
+      }
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final remoteVideos = _remoteVideos();
+    final localVideo = _localVideo();
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('livekit_pip — Call'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.call_end, color: Colors.red),
-            tooltip: 'Hang up',
-            onPressed: _hangUp,
-          ),
-        ],
-      ),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // iOS: hosts AVSampleBufferDisplayLayer. Android: zero-size no-op.
-          LiveKitPipView(room: widget.room),
+          // ── Remote video tiles ──────────────────────────────────────────
+          if (remoteVideos.isEmpty)
+            const Center(
+              child: Text(
+                'Waiting for participants…',
+                style: TextStyle(color: Colors.white54),
+              ),
+            )
+          else
+            _VideoGrid(videos: remoteVideos),
 
+          // ── iOS: native layer must be in tree ───────────────────────────
+          Positioned(
+            width: 1,
+            height: 1,
+            child: LiveKitPipView(room: widget.room),
+          ),
+
+          // ── Local self-view (bottom-right) ──────────────────────────────
+          if (localVideo != null)
+            Positioned(
+              right: 16,
+              bottom: 100,
+              width: 96,
+              height: 128,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: VideoTrackRenderer(
+                  localVideo,
+                  mirrorMode: VideoViewMirrorMode.mirror,
+                  fit: VideoViewFit.cover,
+                ),
+              ),
+            ),
+
+          // ── Top bar: PiP controls ───────────────────────────────────────
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _StatusCard(
-                    supported: _supported,
-                    pipState: _pipState,
-                    room: widget.room,
-                  ),
-                  const SizedBox(height: 24),
-                  if (!_initialized) ...[
-                    FilledButton.icon(
-                      onPressed: _supported == true ? _initializePip : null,
-                      icon: const Icon(Icons.picture_in_picture),
-                      label: const Text('Initialize PiP'),
-                    ),
-                  ] else ...[
-                    FilledButton.icon(
-                      onPressed:
-                          _pipState == PipState.inactive ? _enterPip : null,
-                      icon: const Icon(Icons.picture_in_picture_alt),
-                      label: const Text('Enter PiP'),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: _pipState == PipState.active ? _exitPip : null,
-                      icon: const Icon(Icons.fullscreen),
-                      label: const Text('Exit PiP'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: _disposePip,
-                      icon: const Icon(Icons.stop_circle_outlined),
-                      label: const Text('Dispose PiP'),
-                    ),
-                  ],
-                  const Spacer(),
-                  _ParticipantList(room: widget.room),
-                ],
+            child: _PipBar(
+              supported: _pipSupported,
+              initialized: _pipInitialized,
+              pipState: _pipState,
+              onInitialize: _initPip,
+              onEnter: () => unawaited(_pip.enterPiP()),
+              onExit: () => unawaited(_pip.exitPiP()),
+              onDispose: _disposePip,
+            ),
+          ),
+
+          // ── Bottom bar: hang up + mic/cam toggles ───────────────────────
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: _BottomBar(
+                room: widget.room,
+                onHangUp: _hangUp,
               ),
             ),
           ),
@@ -294,119 +321,164 @@ class _CallPageState extends State<CallPage> {
   }
 }
 
-// ──── Status card ────────────────────────────────────────────────────────
+// ──── Video grid ────────────────────────────────────────────────────────
 
-class _StatusCard extends StatefulWidget {
-  const _StatusCard({
-    required this.supported,
-    required this.pipState,
-    required this.room,
-  });
+class _ParticipantVideo {
+  const _ParticipantVideo({required this.name, required this.track});
 
-  final bool? supported;
-  final PipState pipState;
-  final Room room;
-
-  @override
-  State<_StatusCard> createState() => _StatusCardState();
+  final String name;
+  final VideoTrack track;
 }
 
-class _StatusCardState extends State<_StatusCard> {
-  late final EventsListener<RoomEvent> _listener;
+class _VideoGrid extends StatelessWidget {
+  const _VideoGrid({required this.videos});
 
-  @override
-  void initState() {
-    super.initState();
-    _listener = widget.room.createListener()
-      ..on<RoomConnectedEvent>((_) => setState(() {}))
-      ..on<RoomDisconnectedEvent>((_) => setState(() {}))
-      ..on<ParticipantConnectedEvent>((_) => setState(() {}))
-      ..on<ParticipantDisconnectedEvent>((_) => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    unawaited(_listener.dispose());
-    super.dispose();
-  }
+  final List<_ParticipantVideo> videos;
 
   @override
   Widget build(BuildContext context) {
-    final participantCount =
-        widget.room.remoteParticipants.length + 1; // +1 for local
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: videos.length == 1 ? 1 : 2,
+        childAspectRatio: 3 / 4,
+      ),
+      itemCount: videos.length,
+      itemBuilder: (_, i) {
+        final v = videos[i];
+        return Stack(
           children: [
-            _Row('PiP supported', widget.supported == null
-                ? 'checking…'
-                : (widget.supported! ? 'yes' : 'no')),
-            _Row('PiP state', widget.pipState.name),
-            _Row('Participants', '$participantCount'),
-            _Row(
-              'Room',
-              widget.room.name ?? 'connected',
+            VideoTrackRenderer(v.track, fit: VideoViewFit.cover),
+            Positioned(
+              bottom: 4,
+              left: 4,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  v.name,
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value);
+// ──── PiP bar ───────────────────────────────────────────────────────────
 
-  final String label;
-  final String value;
+class _PipBar extends StatelessWidget {
+  const _PipBar({
+    required this.supported,
+    required this.initialized,
+    required this.pipState,
+    required this.onInitialize,
+    required this.onEnter,
+    required this.onExit,
+    required this.onDispose,
+  });
+
+  final bool? supported;
+  final bool initialized;
+  final PipState pipState;
+  final VoidCallback onInitialize;
+  final VoidCallback onEnter;
+  final VoidCallback onExit;
+  final VoidCallback onDispose;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    if (supported == false) return const SizedBox.shrink();
+    return Container(
+      color: Colors.black54,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-            ),
+          Icon(
+            Icons.picture_in_picture,
+            size: 16,
+            color: initialized ? Colors.greenAccent : Colors.white54,
           ),
-          Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(width: 6),
+          Text(
+            pipState.name,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const Spacer(),
+          if (!initialized)
+            _TxtBtn(
+              'Init PiP',
+              onPressed: supported == true ? onInitialize : null,
+            )
+          else ...[
+            _TxtBtn(
+              'Enter',
+              onPressed: pipState == PipState.inactive ? onEnter : null,
+            ),
+            _TxtBtn(
+              'Exit',
+              onPressed: pipState == PipState.active ? onExit : null,
+            ),
+            _TxtBtn('Dispose', onPressed: onDispose, danger: true),
+          ],
         ],
       ),
     );
   }
 }
 
-// ──── Participant list ───────────────────────────────────────────────────
+class _TxtBtn extends StatelessWidget {
+  const _TxtBtn(this.label, {required this.onPressed, this.danger = false});
 
-class _ParticipantList extends StatefulWidget {
-  const _ParticipantList({required this.room});
-
-  final Room room;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool danger;
 
   @override
-  State<_ParticipantList> createState() => _ParticipantListState();
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: danger ? Colors.redAccent : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 12)),
+    );
+  }
 }
 
-class _ParticipantListState extends State<_ParticipantList> {
+// ──── Bottom control bar ────────────────────────────────────────────────
+
+class _BottomBar extends StatefulWidget {
+  const _BottomBar({required this.room, required this.onHangUp});
+
+  final Room room;
+  final VoidCallback onHangUp;
+
+  @override
+  State<_BottomBar> createState() => _BottomBarState();
+}
+
+class _BottomBarState extends State<_BottomBar> {
   late final EventsListener<RoomEvent> _listener;
 
   @override
   void initState() {
     super.initState();
     _listener = widget.room.createListener()
-      ..on<ParticipantConnectedEvent>((_) => setState(() {}))
-      ..on<ParticipantDisconnectedEvent>((_) => setState(() {}))
-      ..on<TrackSubscribedEvent>((_) => setState(() {}))
-      ..on<TrackUnsubscribedEvent>((_) => setState(() {}));
+      ..on<TrackMutedEvent>((_) => setState(() {}))
+      ..on<TrackUnmutedEvent>((_) => setState(() {}))
+      ..on<LocalTrackPublishedEvent>((_) => setState(() {}))
+      ..on<LocalTrackUnpublishedEvent>((_) => setState(() {}));
   }
 
   @override
@@ -415,61 +487,57 @@ class _ParticipantListState extends State<_ParticipantList> {
     super.dispose();
   }
 
+  bool get _micEnabled =>
+      widget.room.localParticipant?.isMicrophoneEnabled() ?? false;
+  bool get _camEnabled =>
+      widget.room.localParticipant?.isCameraEnabled() ?? false;
+
   @override
   Widget build(BuildContext context) {
-    final remote = widget.room.remoteParticipants.values.toList();
-    if (remote.isEmpty) {
-      return const Text(
-        'Waiting for other participants…',
-        textAlign: TextAlign.center,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Participants (${remote.length + 1})',
-          style: Theme.of(context).textTheme.labelMedium,
-        ),
-        const SizedBox(height: 8),
-        for (final p in remote)
-          ListTile(
-            dense: true,
-            leading: const Icon(Icons.person_outline),
-            title: Text(p.name.isNotEmpty ? p.name : p.identity),
-            subtitle: Text(
-              p.isCameraEnabled() ? 'camera on' : 'camera off',
-            ),
-            contentPadding: EdgeInsets.zero,
+    return Container(
+      color: Colors.black87,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          IconButton(
+            icon: Icon(_micEnabled ? Icons.mic : Icons.mic_off),
+            color: _micEnabled ? Colors.white : Colors.red,
+            onPressed: () async {
+              await widget.room.localParticipant
+                  ?.setMicrophoneEnabled(!_micEnabled);
+            },
           ),
-      ],
+          IconButton(
+            icon: Icon(_camEnabled ? Icons.videocam : Icons.videocam_off),
+            color: _camEnabled ? Colors.white : Colors.red,
+            onPressed: () async {
+              await widget.room.localParticipant
+                  ?.setCameraEnabled(!_camEnabled);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.call_end),
+            color: Colors.red,
+            onPressed: widget.onHangUp,
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ──── Android PiP content ───────────────────────────────────────────────
+// ──── Android PiP fallback content ─────────────────────────────────────
 
 class _AndroidPipContent extends StatelessWidget {
-  const _AndroidPipContent({required this.room});
-
-  final Room room;
+  const _AndroidPipContent();
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return const ColoredBox(
       color: Colors.black,
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.videocam, color: Colors.white, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              room.name ?? 'Call',
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            ),
-          ],
-        ),
+        child: Icon(Icons.videocam, color: Colors.white, size: 32),
       ),
     );
   }
