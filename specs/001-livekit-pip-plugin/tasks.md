@@ -40,7 +40,7 @@ Based on plan.md — 4-package federated Flutter plugin at repo root:
 **Purpose**: Verify scaffolding, fix known defects, align dependencies across packages.
 
 - [ ] T001 Verify `pubspec.yaml` in all 4 packages has correct `dartPluginClass` wiring and package names match federated plugin convention (`livekit_pip`, `livekit_pip_platform_interface`, `livekit_pip_android`, `livekit_pip_ios`)
-- [ ] T002 [P] Add `livekit_client: ^2.0.0` (or latest) to dependencies in `livekit_pip/pubspec.yaml`
+- [ ] T002 [P] Add `livekit_client: ^2.8.0` (or latest) to dependencies in `livekit_pip/pubspec.yaml`
 - [ ] T003 [P] Add `pigeon` as a `dev_dependency` in `livekit_pip_android/pubspec.yaml` and `livekit_pip_ios/pubspec.yaml`
 - [ ] T004 [P] Sync `very_good_analysis` to the same version in all 4 `analysis_options.yaml` files and confirm `include: package:very_good_analysis/analysis_options.yaml` is present in each
 - [ ] T005 Fix `Package.swift` iOS deployment target: change `.iOS(.v13)` to `.iOS(.v16)` in `livekit_pip_ios/ios/livekit_pip_ios/Package.swift`
