@@ -67,8 +67,8 @@ stories depend on. No user story work begins until this phase is complete.
 - [X] T016 Register `LiveKitPipHostApi` (Pigeon) and EventChannel `livekit_pip/state` (with inline comment "EventChannel: Pigeon does not model push streams") in `livekit_pip_android/android/src/main/kotlin/dev/kaffah/PipPlugin.kt`
 - [X] T017 Register `LiveKitPipHostApi` (Pigeon) and EventChannel `livekit_pip/state` (with inline comment "EventChannel: Pigeon does not model push streams") in `livekit_pip_ios/ios/livekit_pip_ios/Sources/livekit_pip_ios/LiveKitPipPlugin.swift`
 - [X] T018 Register `livekit_pip_view` platform view factory in `livekit_pip_ios/ios/livekit_pip_ios/Sources/livekit_pip_ios/LiveKitPipPlugin.swift` (returns `PipPlatformView`)
-- [ ] T019 Write unit tests for `PipState` transition invariants (all valid transitions from data-model.md, unsupported is terminal, entering always followed by active, exiting always followed by inactive) in `livekit_pip/test/pip_state_test.dart` — these MUST fail before T020
-- [ ] T020 Implement `stateStream` `StreamController<PipState>` wiring in `LiveKitPip` — subscribe to EventChannel `livekit_pip/state`, parse int payload to `PipState`, emit to broadcast stream; update `_state` field on each event in `livekit_pip/lib/src/livekit_pip.dart`
+- [X] T019 Write unit tests for `PipState` transition invariants (all valid transitions from data-model.md, unsupported is terminal, entering always followed by active, exiting always followed by inactive) in `livekit_pip/test/pip_state_test.dart` — these MUST fail before T020
+- [X] T020 Implement `stateStream` `StreamController<PipState>` wiring in `LiveKitPip` — subscribe to EventChannel `livekit_pip/state`, parse int payload to `PipState`, emit to broadcast stream; update `_state` field on each event in `livekit_pip/lib/src/livekit_pip.dart`
 
 **Checkpoint**: Foundation ready — platform interface, Pigeon bindings, channel registration, and state machine skeleton exist. User story phases can now begin in parallel.
 
