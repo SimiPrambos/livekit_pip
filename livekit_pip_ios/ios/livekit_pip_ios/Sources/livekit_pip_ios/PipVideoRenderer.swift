@@ -45,6 +45,8 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
     private var noOfFramesToSkipAfterRendering = 1
     private var skippedFrames = 0
     private var shouldRenderFrame: Bool { skippedFrames == 0 && trackSize != .zero }
+    private var firstFrameLogged = false
+    private var firstEnqueueLogged = false
 
     private let resizeRequiredSizeRatioThreshold: CGFloat = 1
     private let sizeRatioThreshold: CGFloat = 15
@@ -97,6 +99,10 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
 
     func renderFrame(_ frame: RTCVideoFrame?) {
         guard let frame else { return }
+        if !firstFrameLogged {
+            firstFrameLogged = true
+            print("[pip-diag] FIRST renderFrame: \(frame.width)x\(frame.height) rot=\(frame.rotation.rawValue)")
+        }
         // Apply rotation: iOS encodes landscape with a rotation tag; swap for portrait.
         switch frame.rotation {
         case ._90, ._270:
@@ -124,6 +130,10 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
             contentView.renderingComponent.flush()
         }
         if contentView.renderingComponent.isReadyForMoreMediaData {
+            if !firstEnqueueLogged {
+                firstEnqueueLogged = true
+                print("[pip-diag] FIRST enqueue to display layer ✓")
+            }
             contentView.renderingComponent.enqueue(buffer)
         }
     }
@@ -132,6 +142,9 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
     // in a window. This primes isPictureInPicturePossible to true before first minimize.
     private func startFrameStreaming(for track: RTCVideoTrack?) {
         guard let track else { return }
+        print("[pip-diag] startFrameStreaming: trackId=\(track.trackId) window=\(self.window != nil)")
+        firstFrameLogged = false
+        firstEnqueueLogged = false
         bufferUpdatesCancellable = bufferPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.process($0) }

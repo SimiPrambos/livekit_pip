@@ -86,6 +86,8 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     func view() -> UIView { containerView }
 
     func configure(autoEnterOnBackground: Bool) {
+        let possible = pipController?.isPictureInPicturePossible ?? false
+        print("[pip-diag] configure: autoEnter=\(autoEnterOnBackground) possible=\(possible) containerFrame=\(containerView.frame) preferredContentSize=\(pipVC.preferredContentSize)")
         pipController?.canStartPictureInPictureAutomaticallyFromInline = autoEnterOnBackground
 
         // Belt-and-suspenders: system auto-enter alone isn't reliable on first background
@@ -100,9 +102,17 @@ class PipPlatformView: NSObject, FlutterPlatformView {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
+                let possible = self?.pipController?.isPictureInPicturePossible ?? false
+                let active = self?.pipController?.isPictureInPictureActive ?? false
+                let frame = self?.containerView.frame ?? .zero
+                print("[pip-diag] BG-notification: possible=\(possible) active=\(active) containerFrame=\(frame)")
                 guard let ctrl = self?.pipController,
                       ctrl.isPictureInPicturePossible,
-                      !ctrl.isPictureInPictureActive else { return }
+                      !ctrl.isPictureInPictureActive else {
+                    print("[pip-diag] BG-notification: skipped (guard failed)")
+                    return
+                }
+                print("[pip-diag] BG-notification: calling startPictureInPicture()")
                 ctrl.startPictureInPicture()
             }
         }
@@ -110,11 +120,9 @@ class PipPlatformView: NSObject, FlutterPlatformView {
 
     func rebindTrack(trackId: String) {
         let resolved = resolver.resolveVideoTrack(trackId: trackId)
+        print("[pip-diag] rebindTrack: trackId=\(trackId) resolved=\(resolved != nil)")
         pipVC.videoRenderer.track = resolved
         trackStateAdapter.activeTrack = resolved
-        if resolved == nil {
-            print("[livekit_pip] rebindTrack: \(trackId) not found — holding last frame")
-        }
     }
 
     func startPictureInPicture() {
@@ -138,6 +146,7 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
     func pictureInPictureControllerWillStartPictureInPicture(
         _ controller: AVPictureInPictureController
     ) {
+        print("[pip-diag] willStartPiP")
         onStateChanged?(2) // entering
     }
 
@@ -166,7 +175,9 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
         _ controller: AVPictureInPictureController,
         failedToStartPictureInPictureWithError error: Error
     ) {
-        print("[livekit_pip] PiP failed to start: \(error.localizedDescription)")
+        let ns = error as NSError
+        print("[pip-diag] failedToStart: domain=\(ns.domain) code=\(ns.code) msg=\(ns.localizedDescription)")
+        print("[pip-diag] failedToStart: possible=\(controller.isPictureInPicturePossible) containerFrame=\(containerView.frame)")
         onStateChanged?(1) // inactive
     }
 
