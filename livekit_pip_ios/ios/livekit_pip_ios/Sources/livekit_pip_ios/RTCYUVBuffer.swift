@@ -8,6 +8,7 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
     private let pixelBufferRepository = PixelBufferRepository()
     private let source: RTCVideoFrameBuffer
     private let conversion: YUVToARGBConversion
+    let timeStampNs: Int64
 
     var width: Int32 { source.width }
     var height: Int32 { source.height }
@@ -17,10 +18,12 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
 
     init(
         source: RTCVideoFrameBuffer,
-        conversion: YUVToARGBConversion = .init()
+        conversion: YUVToARGBConversion = .init(),
+        timeStampNs: Int64 = 0
     ) {
         self.source = source
         self.conversion = conversion
+        self.timeStampNs = timeStampNs
     }
 
     func toI420() -> any RTCI420BufferProtocol {
@@ -35,7 +38,7 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
                 cropWidth: Int32(source.width), cropHeight: Int32(source.height),
                 scaleWidth: Int32(targetSize.width), scaleHeight: Int32(targetSize.height)
             )
-            return .init(source: resized, conversion: conversion)
+            return .init(source: resized, conversion: conversion, timeStampNs: timeStampNs)
         } else if let cvBuffer = source as? RTCCVPixelBuffer,
                   let dequeued = try? pixelBufferRepository.dequeuePixelBuffer(
                       of: targetSize,
@@ -46,7 +49,7 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
             let tmp: UnsafeMutableRawPointer? = malloc(Int(count))
             cvBuffer.cropAndScale(to: dequeued, withTempBuffer: tmp)
             if let tmp { free(tmp) }
-            return .init(source: RTCCVPixelBuffer(pixelBuffer: dequeued), conversion: conversion)
+            return .init(source: RTCCVPixelBuffer(pixelBuffer: dequeued), conversion: conversion, timeStampNs: timeStampNs)
         }
         return nil
     }
@@ -59,7 +62,12 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
 
     var sampleBuffer: CMSampleBuffer? {
         guard let pixelBuffer else { return nil }
-        var timingInfo = CMSampleTimingInfo()
+        let pts = CMTime(value: timeStampNs, timescale: 1_000_000_000)
+        var timingInfo = CMSampleTimingInfo(
+            duration: .invalid,
+            presentationTimeStamp: pts,
+            decodeTimeStamp: .invalid
+        )
         var formatDescription: CMFormatDescription?
         CMVideoFormatDescriptionCreateForImageBuffer(
             allocator: kCFAllocatorDefault,

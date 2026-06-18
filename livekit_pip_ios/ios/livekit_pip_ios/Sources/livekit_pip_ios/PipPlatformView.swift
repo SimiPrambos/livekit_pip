@@ -69,10 +69,14 @@ class PipPlatformView: NSObject, FlutterPlatformView {
         )
         pipController = AVPictureInPictureController(contentSource: source)
         pipController?.delegate = self
-        pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+        pipController?.canStartPictureInPictureAutomaticallyFromInline = false
     }
 
     func view() -> UIView { containerView }
+
+    func configure(autoEnterOnBackground: Bool) {
+        pipController?.canStartPictureInPictureAutomaticallyFromInline = autoEnterOnBackground
+    }
 
     func rebindTrack(trackId: String) {
         let resolved = resolver.resolveVideoTrack(trackId: trackId)
