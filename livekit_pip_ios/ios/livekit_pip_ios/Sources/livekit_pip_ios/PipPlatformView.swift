@@ -1,55 +1,95 @@
 import AVFoundation
 import AVKit
 import Flutter
+import WebRTC
 
-/// UIView subclass that propagates layout changes to the display layer.
-private final class _PipHostView: UIView {
-    var onLayout: (() -> Void)?
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        onLayout?()
+// Hosts PipVideoRenderer as its full-frame content view.
+// PipAdaptiveWindowSizePolicy updates preferredContentSize when track size changes.
+// preferredContentSize must always be > .zero to avoid PGPegasus -1003 crash.
+private final class PipVideoCallViewController:
+    AVPictureInPictureVideoCallViewController,
+    PipViewControlling
+{
+    private(set) var videoRenderer: PipVideoRenderer
+
+    init() {
+        let policy = PipAdaptiveWindowSizePolicy()
+        let renderer = PipVideoRenderer(windowSizePolicy: policy)
+        videoRenderer = renderer
+        super.init(nibName: nil, bundle: nil)
+        policy.controller = self
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        videoRenderer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(videoRenderer)
+        NSLayoutConstraint.activate([
+            videoRenderer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            videoRenderer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            videoRenderer.topAnchor.constraint(equalTo: view.topAnchor),
+            videoRenderer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        preferredContentSize = CGSize(width: 320, height: 180) // 16:9 until first frame
     }
 }
 
-/// UIView that hosts AVSampleBufferDisplayLayer and AVPictureInPictureController.
-///
-/// Never recreate this view mid-call — rebind FrameBridge.displayLayer instead.
+// containerView is the AVPictureInPictureController activeVideoCallSourceView.
+// Actual rendering happens in PipVideoCallViewController.videoRenderer.
+// Never recreate pipController or the display layer mid-call.
 class PipPlatformView: NSObject, FlutterPlatformView {
 
-    private let _view: _PipHostView
-    let displayLayer: AVSampleBufferDisplayLayer
+    private let containerView: UIView
+    private let pipVC = PipVideoCallViewController()
     private var pipController: AVPictureInPictureController?
-    private let playbackDelegate = PlaybackDelegate()
-    var onStateChanged: ((Int) -> Void)?
-    var frameBridge: FrameBridge?
+    private let trackStateAdapter = TrackStateAdapter()
+    private let resolver: NativeTrackResolver
 
-    init(frame: CGRect, viewId: Int64, args: Any?) {
-        _view = _PipHostView(frame: frame)
-        _view.backgroundColor = .black
-        _view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        displayLayer = AVSampleBufferDisplayLayer()
-        displayLayer.videoGravity = .resizeAspect
-        displayLayer.frame = _view.bounds
-        _view.layer.addSublayer(displayLayer)
+    var onStateChanged: ((Int) -> Void)?
+
+    init(
+        frame: CGRect,
+        viewId: Int64,
+        args: Any?,
+        resolver: NativeTrackResolver = FlutterWebRTCTrackResolver()
+    ) {
+        containerView = UIView(frame: frame)
+        containerView.backgroundColor = .clear
+        containerView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        self.resolver = resolver
         super.init()
-        _view.onLayout = { [weak self] in
-            guard let self = self else { return }
-            self.displayLayer.frame = self._view.bounds
-        }
-        if AVPictureInPictureController.isPictureInPictureSupported() {
-            let source = AVPictureInPictureController.ContentSource(
-                sampleBufferDisplayLayer: displayLayer,
-                playbackDelegate: playbackDelegate
-            )
-            pipController = AVPictureInPictureController(contentSource: source)
-            pipController?.delegate = self
+
+        guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
+        let source = AVPictureInPictureController.ContentSource(
+            activeVideoCallSourceView: containerView,
+            contentViewController: pipVC
+        )
+        pipController = AVPictureInPictureController(contentSource: source)
+        pipController?.delegate = self
+        pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+    }
+
+    func view() -> UIView { containerView }
+
+    func rebindTrack(trackId: String) {
+        let resolved = resolver.resolveVideoTrack(trackId: trackId)
+        pipVC.videoRenderer.track = resolved
+        trackStateAdapter.activeTrack = resolved
+        if resolved == nil {
+            print("[livekit_pip] rebindTrack: \(trackId) not found — holding last frame")
         }
     }
 
-    func view() -> UIView { _view }
-
     func startPictureInPicture() {
-        pipController?.startPictureInPicture()
+        guard let ctrl = pipController else {
+            print("[livekit_pip] startPiP: pipController is nil")
+            return
+        }
+        print("[livekit_pip] startPiP: possible=\(ctrl.isPictureInPicturePossible)")
+        ctrl.startPictureInPicture()
     }
 
     func stopPictureInPicture() {
@@ -57,7 +97,7 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     }
 }
 
-// ──── AVPictureInPictureControllerDelegate ─────────────────────────────────
+// MARK: - AVPictureInPictureControllerDelegate
 
 extension PipPlatformView: AVPictureInPictureControllerDelegate {
 
@@ -70,6 +110,7 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
     func pictureInPictureControllerDidStartPictureInPicture(
         _ controller: AVPictureInPictureController
     ) {
+        trackStateAdapter.isEnabled = true
         onStateChanged?(3) // active
     }
 
@@ -82,6 +123,7 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
     func pictureInPictureControllerDidStopPictureInPicture(
         _ controller: AVPictureInPictureController
     ) {
+        trackStateAdapter.isEnabled = false
         onStateChanged?(1) // inactive
     }
 
@@ -91,5 +133,12 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
     ) {
         print("[livekit_pip] PiP failed to start: \(error.localizedDescription)")
         onStateChanged?(1) // inactive
+    }
+
+    func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+    ) {
+        completionHandler(true)
     }
 }
