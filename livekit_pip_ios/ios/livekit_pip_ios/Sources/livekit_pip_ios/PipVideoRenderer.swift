@@ -64,12 +64,23 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
         ])
     }
 
+    // Called by PipPlatformView delegate when PiP window becomes visible.
+    // Flushes any stale pre-PiP frames and re-primes the display layer.
+    func resumeStreaming() {
+        contentView.renderingComponent.flush()
+        noOfFramesToSkipAfterRendering = 0
+        skippedFrames = 0
+        guard let track else { return }
+        track.remove(self)
+        track.add(self)
+    }
+
     // MARK: - Window lifecycle (gates frame delivery)
 
     override func willMove(toWindow newWindow: UIWindow?) {
         super.willMove(toWindow: newWindow)
         if newWindow != nil {
-            startFrameStreaming(for: track, on: newWindow)
+            startFrameStreaming(for: track)
         } else {
             stopFrameStreaming(for: track)
         }
@@ -86,7 +97,13 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
 
     func renderFrame(_ frame: RTCVideoFrame?) {
         guard let frame else { return }
-        trackSize = CGSize(width: CGFloat(frame.width), height: CGFloat(frame.height))
+        // Apply rotation: iOS encodes landscape with a rotation tag; swap for portrait.
+        switch frame.rotation {
+        case ._90, ._270:
+            trackSize = CGSize(width: CGFloat(frame.height), height: CGFloat(frame.width))
+        default:
+            trackSize = CGSize(width: CGFloat(frame.width), height: CGFloat(frame.height))
+        }
         defer { handleFrameSkippingIfRequired() }
         guard shouldRenderFrame else { return }
         guard let transformed = bufferTransformer.transformAndResizeIfRequired(
@@ -101,10 +118,7 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
     // MARK: - Private
 
     private func process(_ buffer: CMSampleBuffer) {
-        guard bufferUpdatesCancellable != nil, buffer.isValid else {
-            contentView.renderingComponent.flush()
-            return
-        }
+        guard buffer.isValid else { return }
         if #available(iOS 14.0, *),
            contentView.renderingComponent.requiresFlushToResumeDecoding {
             contentView.renderingComponent.flush()
@@ -114,8 +128,10 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
         }
     }
 
-    private func startFrameStreaming(for track: RTCVideoTrack?, on window: UIWindow?) {
-        guard window != nil, let track else { return }
+    // No window guard: AVSampleBufferDisplayLayer accepts frames even when not yet
+    // in a window. This primes isPictureInPicturePossible to true before first minimize.
+    private func startFrameStreaming(for track: RTCVideoTrack?) {
+        guard let track else { return }
         bufferUpdatesCancellable = bufferPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.process($0) }
@@ -156,6 +172,6 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
         noOfFramesToSkipAfterRendering = 0
         skippedFrames = 0
         requiresResize = false
-        startFrameStreaming(for: track, on: window)
+        startFrameStreaming(for: track)
     }
 }

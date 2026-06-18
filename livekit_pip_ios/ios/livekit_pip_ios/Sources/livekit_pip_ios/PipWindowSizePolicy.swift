@@ -13,7 +13,13 @@ final class PipAdaptiveWindowSizePolicy: PipWindowSizePolicy {
     var trackSize: CGSize = .zero {
         didSet {
             guard trackSize != oldValue, trackSize != .zero else { return }
-            controller?.preferredContentSize = trackSize
+            // Normalize to 180pt on the short side; the system snaps to its allowed sizes.
+            let shortSide: CGFloat = 180
+            let aspect = trackSize.width / trackSize.height
+            let size: CGSize = trackSize.width >= trackSize.height
+                ? CGSize(width: (shortSide * aspect).rounded(), height: shortSide)  // landscape
+                : CGSize(width: shortSide, height: (shortSide / aspect).rounded())  // portrait
+            controller?.preferredContentSize = size
         }
     }
     weak var controller: PipViewControlling?

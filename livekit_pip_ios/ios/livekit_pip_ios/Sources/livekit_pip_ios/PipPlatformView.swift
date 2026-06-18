@@ -1,6 +1,7 @@
 import AVFoundation
 import AVKit
 import Flutter
+import UIKit
 import WebRTC
 
 // Hosts PipVideoRenderer as its full-frame content view.
@@ -47,6 +48,7 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     private var pipController: AVPictureInPictureController?
     private let trackStateAdapter = TrackStateAdapter()
     private let resolver: NativeTrackResolver
+    private var backgroundObserver: NSObjectProtocol?
 
     var onStateChanged: ((Int) -> Void)?
 
@@ -70,12 +72,40 @@ class PipPlatformView: NSObject, FlutterPlatformView {
         pipController = AVPictureInPictureController(contentSource: source)
         pipController?.delegate = self
         pipController?.canStartPictureInPictureAutomaticallyFromInline = false
+        // Force viewDidLoad so preferredContentSize is non-zero before any PiP attempt.
+        // Without this, isPictureInPicturePossible stays false until the view is first accessed.
+        _ = pipVC.view
+    }
+
+    deinit {
+        if let obs = backgroundObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
     }
 
     func view() -> UIView { containerView }
 
     func configure(autoEnterOnBackground: Bool) {
         pipController?.canStartPictureInPictureAutomaticallyFromInline = autoEnterOnBackground
+
+        // Belt-and-suspenders: system auto-enter alone isn't reliable on first background
+        // (requires at least one primed frame). Explicitly start when app backgrounds.
+        if let obs = backgroundObserver {
+            NotificationCenter.default.removeObserver(obs)
+            backgroundObserver = nil
+        }
+        if autoEnterOnBackground {
+            backgroundObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.didEnterBackgroundNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let ctrl = self?.pipController,
+                      ctrl.isPictureInPicturePossible,
+                      !ctrl.isPictureInPictureActive else { return }
+                ctrl.startPictureInPicture()
+            }
+        }
     }
 
     func rebindTrack(trackId: String) {
@@ -115,6 +145,7 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
         _ controller: AVPictureInPictureController
     ) {
         trackStateAdapter.isEnabled = true
+        pipVC.videoRenderer.resumeStreaming()
         onStateChanged?(3) // active
     }
 
