@@ -12,6 +12,7 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
     var width: Int32 { source.width }
     var height: Int32 { source.height }
 
+    // Each RTCYUVBuffer wraps one captured frame and is never reused across frames.
     private lazy var i420ToYUVPixelBuffer = buildI420ToYUVPixelBuffer()
 
     init(
@@ -44,8 +45,8 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
                 toWidth: Int32(targetSize.width), height: Int32(targetSize.height))
             let tmp: UnsafeMutableRawPointer? = malloc(Int(count))
             cvBuffer.cropAndScale(to: dequeued, withTempBuffer: tmp)
-            tmp?.deallocate()
-            return .init(source: RTCCVPixelBuffer(pixelBuffer: dequeued))
+            if let tmp { free(tmp) }
+            return .init(source: RTCCVPixelBuffer(pixelBuffer: dequeued), conversion: conversion)
         }
         return nil
     }
@@ -110,7 +111,7 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
             width: vImagePixelCount(i420.chromaWidth),
             rowBytes: Int(i420.strideV)
         )
-        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
         var output = vImage_Buffer(
             data: CVPixelBufferGetBaseAddress(pixelBuffer)!,
             height: vImagePixelCount(height),
@@ -121,7 +122,7 @@ final class RTCYUVBuffer: NSObject, RTCVideoFrameBuffer {
             &Yp, &Cb, &Cr, &output, &conversion.output,
             [3, 2, 1, 0], 255, vImage_Flags(kvImageNoFlags)
         )
-        CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
 
         return error == kvImageNoError ? pixelBuffer : nil
     }
