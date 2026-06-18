@@ -30,9 +30,12 @@ class ConnectPage extends StatefulWidget {
 
 class _ConnectPageState extends State<ConnectPage> {
   final _urlController = TextEditingController(
-    text: 'wss://your-project.livekit.cloud',
+    text: 'wss://piptest-fiws50ef.livekit.cloud',
   );
-  final _tokenController = TextEditingController();
+  final _tokenController = TextEditingController(
+    text:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBUEkyUWFVVEM3d3ozRkIiLCJzdWIiOiJ1c2VyMiIsIm5iZiI6MTc4MTc3NTMxNSwiZXhwIjoxNzgxNzc4OTE1LCJuYW1lIjoiVXNlciAyIiwidmlkZW8iOnsicm9vbSI6InRlc3Qtcm9vbSIsInJvb21Kb2luIjp0cnVlLCJjYW5QdWJsaXNoIjp0cnVlLCJjYW5TdWJzY3JpYmUiOnRydWUsImNhblB1Ymxpc2hEYXRhIjp0cnVlfX0.CJMIThK4f1HaJ5JkaI6B6sVoQx46ehr7kLDTt-BBB2E',
+  );
   bool _connecting = false;
 
   @override
@@ -61,8 +64,9 @@ class _ConnectPageState extends State<ConnectPage> {
       );
     } on Exception catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Connect failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Connect failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _connecting = false);
@@ -135,38 +139,22 @@ class CallPage extends StatefulWidget {
 
 class _CallPageState extends State<CallPage> {
   late final EventsListener<RoomEvent> _listener;
-  late LiveKitPip _pip;
-
-  PipState _pipState = PipState.inactive;
-  bool _pipInitialized = false;
-  bool? _pipSupported;
-  StreamSubscription<PipState>? _stateSub;
+  final _pip = LiveKitPip();
 
   @override
   void initState() {
     super.initState();
-    _pip = LiveKitPip();
     _listener = widget.room.createListener()
       ..on<ParticipantConnectedEvent>((_) => setState(() {}))
       ..on<ParticipantDisconnectedEvent>((_) => setState(() {}))
       ..on<TrackSubscribedEvent>((_) => setState(() {}))
       ..on<TrackUnsubscribedEvent>((_) => setState(() {}))
-      ..on<TrackMutedEvent>((_) => setState(() {}))
-      ..on<TrackUnmutedEvent>((_) => setState(() {}))
       ..on<LocalTrackPublishedEvent>((_) => setState(() {}))
       ..on<LocalTrackUnpublishedEvent>((_) => setState(() {}));
-    unawaited(_init());
-  }
-
-  Future<void> _init() async {
-    final supported = await _pip.isSupported();
-    if (!mounted) return;
-    setState(() => _pipSupported = supported);
-    await _initPip();
+    unawaited(_initPip());
   }
 
   Future<void> _initPip() async {
-    if (_pipInitialized) return;
     try {
       await _pip.initialize(
         room: widget.room,
@@ -177,53 +165,30 @@ class _CallPageState extends State<CallPage> {
           ios: const IosPipConfiguration(),
         ),
       );
-      _stateSub = _pip.stateStream.listen((s) {
-        if (mounted) setState(() => _pipState = s);
-      });
-      if (mounted) setState(() => _pipInitialized = true);
     } on Exception catch (e) {
       debugPrint('[livekit_pip] initialize failed: $e');
     }
   }
 
-  Future<void> _disposePip() async {
-    await _stateSub?.cancel();
-    _stateSub = null;
-    await _pip.dispose();
-    if (mounted) {
-      setState(() {
-        _pipInitialized = false;
-        _pipState = PipState.inactive;
-        _pip = LiveKitPip();
-      });
-    }
-  }
-
   Future<void> _hangUp() async {
-    await _disposePip();
+    await _pip.dispose();
     await widget.room.disconnect();
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   void dispose() {
-    final sub = _stateSub;
-    if (sub != null) unawaited(sub.cancel());
     unawaited(_pip.dispose());
     unawaited(_listener.dispose());
     unawaited(widget.room.disconnect());
     super.dispose();
   }
 
-  // ── Video helpers ─────────────────────────────────────────────────────────
-
   VideoTrack? _localVideo() {
     final local = widget.room.localParticipant;
     if (local == null) return null;
     for (final pub in local.videoTrackPublications) {
-      if (pub.source == TrackSource.camera && !pub.muted) {
-        return pub.track;
-      }
+      if (pub.source == TrackSource.camera) return pub.track;
     }
     return null;
   }
@@ -232,13 +197,15 @@ class _CallPageState extends State<CallPage> {
     final result = <_ParticipantVideo>[];
     for (final p in widget.room.remoteParticipants.values) {
       for (final pub in p.videoTrackPublications) {
-        if (pub.source == TrackSource.camera && !pub.muted) {
+        if (pub.source == TrackSource.camera) {
           final t = pub.track;
           if (t != null) {
-            result.add(_ParticipantVideo(
-              name: p.name.isNotEmpty ? p.name : p.identity,
-              track: t,
-            ));
+            result.add(
+              _ParticipantVideo(
+                name: p.name.isNotEmpty ? p.name : p.identity,
+                track: t,
+              ),
+            );
           }
         }
       }
@@ -255,7 +222,11 @@ class _CallPageState extends State<CallPage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ── Remote video tiles ──────────────────────────────────────────
+          // iOS: transparent source view for AVPictureInPictureController.
+          // Must fill the screen so isPictureInPicturePossible stays true.
+          // Placed first (lowest z-order) so Flutter content renders on top.
+          Positioned.fill(child: LiveKitPipView(room: widget.room)),
+
           if (remoteVideos.isEmpty)
             const Center(
               child: Text(
@@ -266,14 +237,6 @@ class _CallPageState extends State<CallPage> {
           else
             _VideoGrid(videos: remoteVideos),
 
-          // ── iOS: native layer must be in tree ───────────────────────────
-          Positioned(
-            width: 1,
-            height: 1,
-            child: LiveKitPipView(room: widget.room),
-          ),
-
-          // ── Local self-view (bottom-right) ──────────────────────────────
           if (localVideo != null)
             Positioned(
               right: 16,
@@ -290,29 +253,12 @@ class _CallPageState extends State<CallPage> {
               ),
             ),
 
-          // ── Top bar: PiP controls ───────────────────────────────────────
-          SafeArea(
-            child: _PipBar(
-              supported: _pipSupported,
-              initialized: _pipInitialized,
-              pipState: _pipState,
-              onInitialize: _initPip,
-              onEnter: () => unawaited(_pip.enterPiP()),
-              onExit: () => unawaited(_pip.exitPiP()),
-              onDispose: _disposePip,
-            ),
-          ),
-
-          // ── Bottom bar: hang up + mic/cam toggles ───────────────────────
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: SafeArea(
-              child: _BottomBar(
-                room: widget.room,
-                onHangUp: _hangUp,
-              ),
+              child: _BottomBar(room: widget.room, onHangUp: _hangUp),
             ),
           ),
         ],
@@ -346,112 +292,33 @@ class _VideoGrid extends StatelessWidget {
       itemCount: videos.length,
       itemBuilder: (_, i) {
         final v = videos[i];
-        return Stack(
-          children: [
-            VideoTrackRenderer(v.track, fit: VideoViewFit.cover),
-            Positioned(
-              bottom: 4,
-              left: 4,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  v.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
+        return RepaintBoundary(
+          key: ValueKey(v.track),
+          child: Stack(
+            children: [
+              VideoTrackRenderer(v.track, fit: VideoViewFit.cover),
+              Positioned(
+                bottom: 4,
+                left: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    v.name,
+                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
-    );
-  }
-}
-
-// ──── PiP bar ───────────────────────────────────────────────────────────
-
-class _PipBar extends StatelessWidget {
-  const _PipBar({
-    required this.supported,
-    required this.initialized,
-    required this.pipState,
-    required this.onInitialize,
-    required this.onEnter,
-    required this.onExit,
-    required this.onDispose,
-  });
-
-  final bool? supported;
-  final bool initialized;
-  final PipState pipState;
-  final VoidCallback onInitialize;
-  final VoidCallback onEnter;
-  final VoidCallback onExit;
-  final VoidCallback onDispose;
-
-  @override
-  Widget build(BuildContext context) {
-    if (supported == false) return const SizedBox.shrink();
-    return Container(
-      color: Colors.black54,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          Icon(
-            Icons.picture_in_picture,
-            size: 16,
-            color: initialized ? Colors.greenAccent : Colors.white54,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            pipState.name,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          const Spacer(),
-          if (!initialized)
-            _TxtBtn(
-              'Init PiP',
-              onPressed: supported == true ? onInitialize : null,
-            )
-          else ...[
-            _TxtBtn(
-              'Enter',
-              onPressed: pipState == PipState.inactive ? onEnter : null,
-            ),
-            _TxtBtn(
-              'Exit',
-              onPressed: pipState == PipState.active ? onExit : null,
-            ),
-            _TxtBtn('Dispose', onPressed: onDispose, danger: true),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TxtBtn extends StatelessWidget {
-  const _TxtBtn(this.label, {required this.onPressed, this.danger = false});
-
-  final String label;
-  final VoidCallback? onPressed;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: danger ? Colors.redAccent : Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 12)),
     );
   }
 }
@@ -504,16 +371,18 @@ class _BottomBarState extends State<_BottomBar> {
             icon: Icon(_micEnabled ? Icons.mic : Icons.mic_off),
             color: _micEnabled ? Colors.white : Colors.red,
             onPressed: () async {
-              await widget.room.localParticipant
-                  ?.setMicrophoneEnabled(!_micEnabled);
+              await widget.room.localParticipant?.setMicrophoneEnabled(
+                !_micEnabled,
+              );
             },
           ),
           IconButton(
             icon: Icon(_camEnabled ? Icons.videocam : Icons.videocam_off),
             color: _camEnabled ? Colors.white : Colors.red,
             onPressed: () async {
-              await widget.room.localParticipant
-                  ?.setCameraEnabled(!_camEnabled);
+              await widget.room.localParticipant?.setCameraEnabled(
+                !_camEnabled,
+              );
             },
           ),
           IconButton(

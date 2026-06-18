@@ -48,3 +48,5 @@ build/
 .project
 .classpath
 .settings
+
+template/
