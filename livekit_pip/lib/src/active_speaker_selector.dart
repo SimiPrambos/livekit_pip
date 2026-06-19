@@ -10,11 +10,17 @@ class ActiveSpeakerSelector {
   ///
   /// [onTrackChanged] is called with the WebRTC track ID whenever the dominant
   /// remote video track changes. Called with `null` when no video is available.
+  ///
+  /// [onAspectRatioChanged] is called alongside [onTrackChanged] when the
+  /// chosen publication has non-null dimensions, providing the video width and
+  /// height so callers can update the PiP aspect ratio accordingly.
   ActiveSpeakerSelector({
     required Room room,
     required void Function(String? trackId) onTrackChanged,
+    void Function(int width, int height)? onAspectRatioChanged,
   })  : _room = room,
-        _onTrackChanged = onTrackChanged {
+        _onTrackChanged = onTrackChanged,
+        _onAspectRatioChanged = onAspectRatioChanged {
     _listener = room.createListener()
       ..on<ActiveSpeakersChangedEvent>(_onActiveSpeakersChanged)
       ..on<TrackMutedEvent>(_onTrackMuted)
@@ -25,6 +31,7 @@ class ActiveSpeakerSelector {
 
   final Room _room;
   final void Function(String? trackId) _onTrackChanged;
+  final void Function(int width, int height)? _onAspectRatioChanged;
 
   late final EventsListener<RoomEvent> _listener;
 
@@ -47,6 +54,10 @@ class ActiveSpeakerSelector {
         final trackId = pub.track?.mediaStreamTrack.id;
         if (!pub.muted && pub.subscribed && trackId != null) {
           _updateTrack(trackId);
+          final dim = pub.dimensions;
+          if (dim != null) {
+            _onAspectRatioChanged?.call(dim.width, dim.height);
+          }
           return;
         }
       }
@@ -102,6 +113,26 @@ class ActiveSpeakerSelector {
       for (final pub in p.videoTrackPublications) {
         final trackId = pub.track?.mediaStreamTrack.id;
         if (!pub.muted && pub.subscribed && trackId != null) return trackId;
+      }
+    }
+    return null;
+  }
+
+  /// Dimensions of the current best remote video track, if known.
+  VideoDimensions? get currentBestDimensions {
+    for (final p in _room.activeSpeakers) {
+      if (p is! RemoteParticipant) continue;
+      for (final pub in p.videoTrackPublications) {
+        if (!pub.muted && pub.subscribed && pub.dimensions != null) {
+          return pub.dimensions;
+        }
+      }
+    }
+    for (final p in _room.remoteParticipants.values) {
+      for (final pub in p.videoTrackPublications) {
+        if (!pub.muted && pub.subscribed && pub.dimensions != null) {
+          return pub.dimensions;
+        }
       }
     }
     return null;

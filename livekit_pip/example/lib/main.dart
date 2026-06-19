@@ -34,6 +34,7 @@ class _ConnectPageState extends State<ConnectPage> {
   );
   final _tokenController = TextEditingController(
     text:
+        // ignore: lines_longer_than_80_chars, JWT token cannot be split
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBUEkyUWFVVEM3d3ozRkIiLCJzdWIiOiJ1c2VyMiIsIm5iZiI6MTc4MTc3NTMxNSwiZXhwIjoxNzgxNzc4OTE1LCJuYW1lIjoiVXNlciAyIiwidmlkZW8iOnsicm9vbSI6InRlc3Qtcm9vbSIsInJvb21Kb2luIjp0cnVlLCJjYW5QdWJsaXNoIjp0cnVlLCJjYW5TdWJzY3JpYmUiOnRydWUsImNhblB1Ymxpc2hEYXRhIjp0cnVlfX0.CJMIThK4f1HaJ5JkaI6B6sVoQx46ehr7kLDTt-BBB2E',
   );
   bool _connecting = false;
