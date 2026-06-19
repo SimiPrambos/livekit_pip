@@ -74,6 +74,10 @@ class PipPlugin : FlutterPlugin, ActivityAware, LiveKitPipHostApi {
         // Android: widget builder handles track selection in Dart
     }
 
+    override fun updateAspectRatio(width: Long, height: Long) {
+        pipHelper?.updateAspectRatio(width.toInt(), height.toInt())
+    }
+
     // ──── State stream ─────────────────────────────────────────────────────
 
     internal fun emitState(stateOrdinal: Int) {

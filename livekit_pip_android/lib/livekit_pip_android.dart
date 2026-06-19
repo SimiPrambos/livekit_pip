@@ -56,6 +56,10 @@ class LivekitPipAndroid extends LivekitPipPlatform {
       _api.updateActiveTrack(trackId);
 
   @override
+  Future<void> updateAspectRatio(int width, int height) =>
+      _api.updateAspectRatio(width, height);
+
+  @override
   Stream<int> get stateStream =>
       _stateChannel.receiveBroadcastStream().cast<int>();
 }

@@ -81,6 +81,10 @@ class PipHelper(
         // Lifecycle callbacks are registered on Application; cleaned up when Activity is destroyed.
     }
 
+    fun updateAspectRatio(width: Int, height: Int) {
+        // Implemented in Task 7.
+    }
+
     fun enter() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             @Suppress("DEPRECATION")

@@ -280,6 +280,7 @@ interface LiveKitPipHostApi {
   fun dispose()
   fun isSupported(): Boolean
   fun updateActiveTrack(trackId: String)
+  fun updateAspectRatio(width: Long, height: Long)
 
   companion object {
     /** The codec used by LiveKitPipHostApi. */
@@ -379,6 +380,25 @@ interface LiveKitPipHostApi {
             val trackIdArg = args[0] as String
             val wrapped: List<Any?> = try {
               api.updateActiveTrack(trackIdArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.updateAspectRatio$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val widthArg = args[0] as Long
+            val heightArg = args[1] as Long
+            val wrapped: List<Any?> = try {
+              api.updateAspectRatio(widthArg, heightArg)
               listOf(null)
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)

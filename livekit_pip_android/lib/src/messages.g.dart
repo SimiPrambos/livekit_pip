@@ -316,4 +316,22 @@ class LiveKitPipHostApi {
     )
     ;
   }
+
+  Future<void> updateAspectRatio(int width, int height) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.updateAspectRatio$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[width, height]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
 }

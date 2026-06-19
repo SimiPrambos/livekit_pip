@@ -39,4 +39,5 @@ abstract class LiveKitPipHostApi {
   void dispose();
   bool isSupported();
   void updateActiveTrack(String trackId);
+  void updateAspectRatio(int width, int height);
 }
