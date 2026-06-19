@@ -161,7 +161,7 @@ class _CallPageState extends State<CallPage> {
         room: widget.room,
         config: LiveKitPipConfiguration(
           android: AndroidPipConfiguration(
-            pipWidgetBuilder: (ctx, room) => const _AndroidPipContent(),
+            pipWidgetBuilder: (ctx, room) => _AndroidPipContent(room: room),
           ),
           ios: const IosPipConfiguration(),
         ),
@@ -221,8 +221,10 @@ class _CallPageState extends State<CallPage> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
+      body: LiveKitPipScaffold(
+        pip: _pip,
+        builder: (context) => Stack(
+          children: [
           // iOS: transparent source view for AVPictureInPictureController.
           // Must fill the screen so isPictureInPicturePossible stays true.
           // Placed first (lowest z-order) so Flutter content renders on top.
@@ -263,8 +265,9 @@ class _CallPageState extends State<CallPage> {
             ),
           ),
         ],
-      ),
-    );
+        ),  // end Stack children list + Stack
+      ),    // end LiveKitPipScaffold
+    );      // end Scaffold
   }
 }
 
@@ -400,15 +403,26 @@ class _BottomBarState extends State<_BottomBar> {
 // ──── Android PiP fallback content ─────────────────────────────────────
 
 class _AndroidPipContent extends StatelessWidget {
-  const _AndroidPipContent();
+  const _AndroidPipContent({required this.room});
+
+  final Room room;
 
   @override
   Widget build(BuildContext context) {
+    for (final p in room.remoteParticipants.values) {
+      for (final pub in p.videoTrackPublications) {
+        final track = pub.track;
+        if (track != null && pub.source == TrackSource.camera) {
+          return ColoredBox(
+            color: Colors.black,
+            child: VideoTrackRenderer(track, fit: VideoViewFit.cover),
+          );
+        }
+      }
+    }
     return const ColoredBox(
       color: Colors.black,
-      child: Center(
-        child: Icon(Icons.videocam, color: Colors.white, size: 32),
-      ),
+      child: Center(child: Icon(Icons.videocam, color: Colors.white, size: 32)),
     );
   }
 }

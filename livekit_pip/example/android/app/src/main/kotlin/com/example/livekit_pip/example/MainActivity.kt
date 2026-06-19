@@ -1,6 +1,5 @@
 package dev.kaffah.example
 
-import io.flutter.embedding.android.FlutterActivity
+import dev.kaffah.LiveKitPipActivity
 
-class MainActivity: FlutterActivity() {
-}
+class MainActivity : LiveKitPipActivity()
