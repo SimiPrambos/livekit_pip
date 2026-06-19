@@ -45,8 +45,6 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
     private var noOfFramesToSkipAfterRendering = 1
     private var skippedFrames = 0
     private var shouldRenderFrame: Bool { skippedFrames == 0 && trackSize != .zero }
-    private var firstFrameLogged = false
-    private var firstEnqueueLogged = false
 
     private let resizeRequiredSizeRatioThreshold: CGFloat = 1
     private let sizeRatioThreshold: CGFloat = 15
@@ -82,7 +80,7 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
     override func willMove(toWindow newWindow: UIWindow?) {
         super.willMove(toWindow: newWindow)
         if newWindow != nil {
-            startFrameStreaming(for: track)
+            startFrameStreaming(for: track, on: newWindow)
         } else {
             stopFrameStreaming(for: track)
         }
@@ -99,10 +97,6 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
 
     func renderFrame(_ frame: RTCVideoFrame?) {
         guard let frame else { return }
-        if !firstFrameLogged {
-            firstFrameLogged = true
-            print("[pip-diag] FIRST renderFrame: \(frame.width)x\(frame.height) rot=\(frame.rotation.rawValue)")
-        }
         // Apply rotation: iOS encodes landscape with a rotation tag; swap for portrait.
         switch frame.rotation {
         case ._90, ._270:
@@ -130,21 +124,18 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
             contentView.renderingComponent.flush()
         }
         if contentView.renderingComponent.isReadyForMoreMediaData {
-            if !firstEnqueueLogged {
-                firstEnqueueLogged = true
-                print("[pip-diag] FIRST enqueue to display layer ✓")
-            }
             contentView.renderingComponent.enqueue(buffer)
         }
     }
 
-    // No window guard: AVSampleBufferDisplayLayer accepts frames even when not yet
-    // in a window. This primes isPictureInPicturePossible to true before first minimize.
-    private func startFrameStreaming(for track: RTCVideoTrack?) {
-        guard let track else { return }
-        print("[pip-diag] startFrameStreaming: trackId=\(track.trackId) window=\(self.window != nil)")
-        firstFrameLogged = false
-        firstEnqueueLogged = false
+    // Window guard: only stream frames while the renderer is in the PiP window.
+    // Enqueueing into the AVSampleBufferDisplayLayer before the PiP session owns the
+    // layer leaves it in a state where the first system auto-enter fires
+    // willStartPiP but never completes (no didStartPiP) — the "first minimize doesn't
+    // show, second does" bug. isPictureInPicturePossible becomes true via the
+    // activeVideoCallSourceView being in a window, not via frames.
+    private func startFrameStreaming(for track: RTCVideoTrack?, on window: UIWindow?) {
+        guard window != nil, let track else { return }
         bufferUpdatesCancellable = bufferPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.process($0) }
@@ -185,6 +176,6 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
         noOfFramesToSkipAfterRendering = 0
         skippedFrames = 0
         requiresResize = false
-        startFrameStreaming(for: track)
+        startFrameStreaming(for: track, on: window)
     }
 }

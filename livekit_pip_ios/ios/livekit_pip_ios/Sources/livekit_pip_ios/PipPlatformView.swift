@@ -48,7 +48,6 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     private var pipController: AVPictureInPictureController?
     private let trackStateAdapter = TrackStateAdapter()
     private let resolver: NativeTrackResolver
-    private var backgroundObserver: NSObjectProtocol?
 
     var onStateChanged: ((Int) -> Void)?
 
@@ -71,58 +70,55 @@ class PipPlatformView: NSObject, FlutterPlatformView {
         )
         pipController = AVPictureInPictureController(contentSource: source)
         pipController?.delegate = self
-        pipController?.canStartPictureInPictureAutomaticallyFromInline = false
-        // Force viewDidLoad so preferredContentSize is non-zero before any PiP attempt.
-        // Without this, isPictureInPicturePossible stays false until the view is first accessed.
+        // Arm auto-enter at controller creation, not later via configure(): the host
+        // configure() call is async, so the first background can fire before it lands —
+        // and the first minimize would be silently ignored. configure() still applies
+        // the consumer's actual preference afterward.
+        pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+
+        // Force the content view controller's view (and its AVSampleBufferDisplayLayer)
+        // to load. Until the view is loaded, isPictureInPicturePossible never flips to
+        // true and the system never auto-enters on background. This does NOT stream
+        // frames (the renderer has a window guard) — it only loads the view hierarchy.
         _ = pipVC.view
+
+        // Stop PiP when the app returns to the foreground so the next minimize
+        // starts a fresh session.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
     }
 
     deinit {
-        if let obs = backgroundObserver {
-            NotificationCenter.default.removeObserver(obs)
-        }
+        NotificationCenter.default.removeObserver(self)
+        pipController?.stopPictureInPicture()
+    }
+
+    @objc private func handleAppDidBecomeActive() {
+        guard let ctrl = pipController, ctrl.isPictureInPictureActive else { return }
+        ctrl.stopPictureInPicture()
     }
 
     func view() -> UIView { containerView }
 
+    // Auto-enter on background MUST be driven by the system via
+    // canStartPictureInPictureAutomaticallyFromInline. Never call
+    // startPictureInPicture() from a background notification: by the time
+    // UIApplication.didEnterBackgroundNotification fires, the UIScene has already
+    // left foregroundActive state, so the call fails with AVKitErrorDomain -1001
+    // and that failed attempt races with / disrupts the system's automatic entry.
+    // isPictureInPicturePossible becomes true via the activeVideoCallSourceView
+    // being in a visible window — no frame priming required (see PipVideoRenderer).
     func configure(autoEnterOnBackground: Bool) {
-        let possible = pipController?.isPictureInPicturePossible ?? false
-        print("[pip-diag] configure: autoEnter=\(autoEnterOnBackground) possible=\(possible) containerFrame=\(containerView.frame) preferredContentSize=\(pipVC.preferredContentSize)")
         pipController?.canStartPictureInPictureAutomaticallyFromInline = autoEnterOnBackground
-
-        // Belt-and-suspenders: system auto-enter alone isn't reliable on first background
-        // (requires at least one primed frame). Explicitly start when app backgrounds.
-        if let obs = backgroundObserver {
-            NotificationCenter.default.removeObserver(obs)
-            backgroundObserver = nil
-        }
-        if autoEnterOnBackground {
-            backgroundObserver = NotificationCenter.default.addObserver(
-                forName: UIApplication.didEnterBackgroundNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                let possible = self?.pipController?.isPictureInPicturePossible ?? false
-                let active = self?.pipController?.isPictureInPictureActive ?? false
-                let frame = self?.containerView.frame ?? .zero
-                print("[pip-diag] BG-notification: possible=\(possible) active=\(active) containerFrame=\(frame)")
-                guard let ctrl = self?.pipController,
-                      ctrl.isPictureInPicturePossible,
-                      !ctrl.isPictureInPictureActive else {
-                    print("[pip-diag] BG-notification: skipped (guard failed)")
-                    return
-                }
-                print("[pip-diag] BG-notification: calling startPictureInPicture()")
-                ctrl.startPictureInPicture()
-            }
-        }
     }
 
     func rebindTrack(trackId: String) {
-        let resolved = resolver.resolveVideoTrack(trackId: trackId)
-        print("[pip-diag] rebindTrack: trackId=\(trackId) resolved=\(resolved != nil)")
-        pipVC.videoRenderer.track = resolved
-        trackStateAdapter.activeTrack = resolved
+        pipVC.videoRenderer.track = resolver.resolveVideoTrack(trackId: trackId)
+        trackStateAdapter.activeTrack = pipVC.videoRenderer.track
     }
 
     func startPictureInPicture() {
@@ -130,7 +126,6 @@ class PipPlatformView: NSObject, FlutterPlatformView {
             print("[livekit_pip] startPiP: pipController is nil")
             return
         }
-        print("[livekit_pip] startPiP: possible=\(ctrl.isPictureInPicturePossible)")
         ctrl.startPictureInPicture()
     }
 
@@ -146,7 +141,6 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
     func pictureInPictureControllerWillStartPictureInPicture(
         _ controller: AVPictureInPictureController
     ) {
-        print("[pip-diag] willStartPiP")
         onStateChanged?(2) // entering
     }
 
@@ -176,8 +170,7 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
         failedToStartPictureInPictureWithError error: Error
     ) {
         let ns = error as NSError
-        print("[pip-diag] failedToStart: domain=\(ns.domain) code=\(ns.code) msg=\(ns.localizedDescription)")
-        print("[pip-diag] failedToStart: possible=\(controller.isPictureInPicturePossible) containerFrame=\(containerView.frame)")
+        print("[livekit_pip] PiP failed to start: \(ns.domain) \(ns.code) — \(ns.localizedDescription)")
         onStateChanged?(1) // inactive
     }
 
