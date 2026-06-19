@@ -63,6 +63,11 @@ class PipPlugin : FlutterPlugin, ActivityAware, LiveKitPipHostApi {
         activityBinding?.activity?.moveTaskToBack(false)
     }
 
+    /** Forwarded from LiveKitPipActivity.onUserLeaveHint. */
+    fun onUserLeaveHint() {
+        pipHelper?.onUserLeaveHint()
+    }
+
     override fun dispose() {
         pipHelper?.detach()
         pipHelper = null
