@@ -16,7 +16,10 @@ This package is under active development.
 | iOS — dominant-speaker PiP (auto-enter, manual enter/exit, active-speaker switching) | ✅ Working |
 | iOS — screen-share suppression & `PipState` stream | ✅ Working |
 | iOS — self-view inset (`includeLocalParticipantVideo`) | 🚧 Planned (config exists, native compositing not yet wired) |
-| Android — full widget-based PiP | 🚧 In progress (scaffolded, not yet finalized) |
+| Android — auto-enter PiP on background (API 31+) | ✅ Working |
+| Android — manual enter/exit via API | ✅ Working |
+| Android — active speaker tracking & dynamic aspect ratio | ✅ Working |
+| Android — custom widget rendering in PiP window | ✅ Working |
 
 The API surface below is the intended public interface; flags marked 🚧 are accepted but not yet fully honored.
 
@@ -35,17 +38,18 @@ Just hand the package a LiveKit `Room` and drop in one widget. Everything else i
 
 ## Features
 
-- Auto-enter PiP when the user backgrounds the app (configurable)
-- Manual enter/exit via a simple API
-- Active-speaker tracking — iOS PiP always shows the dominant speaker
-- Screen-share suppression (exit PiP when the local user is screen sharing)
-- `PipState` stream for driving your own UI (`unsupported` → `inactive` → `entering` → `active` → `exiting`)
-- Graceful no-ops when PiP is unsupported or disabled in system settings
+- **Auto-enter PiP on background** — API 31+ enters automatically; API 26–30 via legacy `onUserLeaveHint` path (configurable)
+- **Manual enter/exit** via `enterPiP()` and `exitPiP()`
+- **Active-speaker tracking** — iOS shows the dominant speaker; Android renders your custom widget with live feed updates
+- **Dynamic aspect ratio** — Android PiP window automatically adapts to video resolution
+- **Screen-share suppression** — exits PiP when the local user shares screen (configurable)
+- **`PipState` stream** for driving your own UI (`unsupported` → `inactive` → `entering` → `active` → `exiting`)
+- **Custom widget rendering** — Android: provide any Flutter widget (grid, self-view, branded overlay, etc.)
+- **Graceful degradation** — no-ops when PiP is unsupported or disabled in system settings
 
 Planned (see [Status](#status)):
 
 - Optional self-view inset on iOS (composited natively, no extra layers)
-- Custom Flutter widget inside the PiP window on Android (render whatever you like)
 
 ---
 
@@ -54,15 +58,16 @@ Planned (see [Status](#status)):
 | Feature | Android | iOS |
 |---|---|---|
 | Minimum version | API 26 (Android 8) | iOS 16 |
-| Auto-enter on background | 🚧 | ✅ |
-| Manual enter/exit | 🚧 | ✅ |
-| Custom widget in PiP window | 🚧 | — |
-| Active speaker (dominant feed) | 🚧 | ✅ |
-| Self-view inset | 🚧 (via widget) | 🚧 (composited) |
+| Auto-enter on background | ✅ | ✅ |
+| Manual enter/exit | ✅ | ✅ |
+| Custom widget in PiP window | ✅ | — |
+| Active speaker (dominant feed) | ✅ | ✅ |
+| Dynamic aspect ratio | ✅ | — |
+| Self-view inset | ✅ (via widget) | 🚧 (composited) |
 
 > ✅ implemented · 🚧 in progress — see [Status](#status).
 
-> iOS shows a single composited feed — one dominant speaker plus optional self-view inset. An arbitrary multi-tile grid in the PiP window is not possible on iOS due to platform constraints (`AVSampleBufferDisplayLayer` accepts one buffer at a time).
+> **Note:** iOS shows a single composited feed — one dominant speaker plus optional self-view inset. An arbitrary multi-tile grid in the PiP window is not possible on iOS due to platform constraints (`AVSampleBufferDisplayLayer` accepts one buffer at a time). Android supports any custom widget in the PiP window via `pipWidgetBuilder`, enabling full flexibility.
 
 ---
 
@@ -77,14 +82,97 @@ dependencies:
 
 ### Android setup
 
-In your call `Activity` in `AndroidManifest.xml`:
+#### 1. Update `AndroidManifest.xml`
+
+Add `android:supportsPictureInPicture="true"` and the config-change handlers to your call `Activity`:
 
 ```xml
 <activity
   android:name=".MainActivity"
   android:supportsPictureInPicture="true"
   android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation">
+  <!-- ... intent filters ... -->
+</activity>
 ```
+
+- `supportsPictureInPicture` — declares PiP capability; required for all API levels.
+- `configChanges` — tells Android to not recreate the Activity when these config changes occur (screen rotation, size); without this, the Flutter engine would tear down mid-call.
+
+#### 2. Extend `LiveKitPipActivity` in your `MainActivity`
+
+The simplest path: inherit `LiveKitPipActivity` instead of the default base class:
+
+```kotlin
+import dev.kaffah.livekit_pip_android.LiveKitPipActivity
+
+class MainActivity : LiveKitPipActivity() {
+  // Your custom logic here; PiP wiring is automatic.
+}
+```
+
+**Alternative:** If you already extend a custom Activity base class:
+
+Override `onUserLeaveHint()` and forward to the plugin:
+
+```kotlin
+import dev.kaffah.livekit_pip_android.PipHelper
+
+class MainActivity : MyCustomActivityBase() {
+  override fun onUserLeaveHint() {
+    PipHelper.instance.onUserLeaveHint(this)
+    super.onUserLeaveHint()
+  }
+}
+```
+
+#### 3. Wrap your call UI in `LiveKitPipScaffold`
+
+On the call page where you render video, use `LiveKitPipScaffold`:
+
+```dart
+final pip = LiveKitPip();
+
+await pip.initialize(
+  room: room,
+  config: LiveKitPipConfiguration(
+    android: AndroidPipConfiguration(
+      pipWidgetBuilder: (context, room) => MyCallGridWidget(room: room),
+    ),
+    ios: const IosPipConfiguration(),
+  ),
+);
+
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: LiveKitPipScaffold(
+      pip: pip,
+      builder: (context) => Stack(
+        children: [
+          LiveKitPipView(room: room),
+          // ... your call UI (grid, self-view, controls, etc.) ...
+        ],
+      ),
+    ),
+  );
+}
+```
+
+- `LiveKitPipScaffold` automatically swaps the visible widget tree: shows `builder` when full-screen, switches to `pipWidgetBuilder` when PiP is active.
+- On Android, `LiveKitPipView` is a no-op; on iOS it hosts the native rendering layer.
+
+#### 4. Provide a `pipWidgetBuilder`
+
+The `pipWidgetBuilder` closure receives the `BuildContext` and `Room`, and must return a widget to display inside the PiP window. This is typically a simplified view of the call:
+
+```dart
+pipWidgetBuilder: (context, room) {
+  // Render the dominant speaker or a grid — whatever fits your design.
+  return VideoTrackRenderer(dominantTrack, fit: VideoViewFit.cover);
+}
+```
+
+The PiP window will automatically adjust its aspect ratio to match the video resolution and remain responsive to active-speaker changes.
 
 ### iOS setup
 
