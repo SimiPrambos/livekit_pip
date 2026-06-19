@@ -60,16 +60,7 @@ class PipHelper(
                 // Unused lifecycle overrides
                 override fun onActivityCreated(a: Activity, b: android.os.Bundle?) {}
                 override fun onActivityStarted(a: Activity) {}
-                override fun onActivityPaused(a: Activity) {
-                    if (a !== activity) return
-                    // API 26–30: enter on home button (user leave hint fires in onPause on some OEMs)
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && autoEnter) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            @Suppress("DEPRECATION")
-                            activity.enterPictureInPictureMode(buildParams().build())
-                        }
-                    }
-                }
+                override fun onActivityPaused(a: Activity) {}
                 override fun onActivityStopped(a: Activity) {}
                 override fun onActivitySaveInstanceState(a: Activity, b: android.os.Bundle) {}
                 override fun onActivityDestroyed(a: Activity) {}
@@ -81,8 +72,33 @@ class PipHelper(
         // Lifecycle callbacks are registered on Application; cleaned up when Activity is destroyed.
     }
 
+    /** Called from the Activity's onUserLeaveHint (home button) on API 26–30. */
+    fun onUserLeaveHint() {
+        if (!autoEnter) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        ) {
+            enter()
+        }
+    }
+
+    /** Updates the PiP window aspect ratio. Values are clamped on the Dart side. */
     fun updateAspectRatio(width: Int, height: Int) {
-        // Implemented in Task 7.
+        if (width <= 0 || height <= 0) return
+        aspectWidth = width
+        aspectHeight = height
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && autoEnter) {
+                activity.setPictureInPictureParams(
+                    buildParams().setAutoEnterEnabled(true).build()
+                )
+            } else if (activity.isInPictureInPictureMode) {
+                activity.setPictureInPictureParams(buildParams().build())
+            }
+        } catch (e: IllegalArgumentException) {
+            android.util.Log.w("livekit_pip", "setPictureInPictureParams rejected ratio", e)
+        }
     }
 
     fun enter() {
