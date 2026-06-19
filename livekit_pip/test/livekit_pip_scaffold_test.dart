@@ -51,7 +51,10 @@ void main() {
         .thenAnswer((_) async {});
   });
 
-  tearDown(() async => stateRaw.close());
+  tearDown(() async {
+    LivekitPipPlatform.instance = MethodChannelLivekitPip();
+    await stateRaw.close();
+  });
 
   testWidgets('Android: shows pip widget when active, builder otherwise',
       (tester) async {

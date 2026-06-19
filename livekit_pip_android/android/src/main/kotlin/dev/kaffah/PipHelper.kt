@@ -19,6 +19,7 @@ class PipHelper(
     private var autoEnter = true
     private var aspectWidth = 16
     private var aspectHeight = 9
+    private var lifecycleCallbacks: android.app.Application.ActivityLifecycleCallbacks? = null
 
     fun configure(request: PipInitRequest) {
         autoEnter = request.androidAutoEnterOnBackground
@@ -32,44 +33,47 @@ class PipHelper(
     }
 
     fun attach(binding: ActivityPluginBinding) {
-        binding.activity.application.registerActivityLifecycleCallbacks(
-            object : android.app.Application.ActivityLifecycleCallbacks {
-                override fun onActivityResumed(a: Activity) {
-                    if (a !== activity) return
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && autoEnter) {
-                        activity.setPictureInPictureParams(
-                            buildParams().setAutoEnterEnabled(true).build()
-                        )
-                    }
+        val callbacks = object : android.app.Application.ActivityLifecycleCallbacks {
+            override fun onActivityResumed(a: Activity) {
+                if (a !== activity) return
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && autoEnter) {
+                    activity.setPictureInPictureParams(
+                        buildParams().setAutoEnterEnabled(true).build()
+                    )
                 }
-                override fun onActivityPictureInPictureModeChanged(
-                    a: Activity,
-                    isInPip: Boolean,
-                    newConfig: Configuration,
-                ) {
-                    if (a !== activity) return
-                    if (isInPip) {
-                        onStateChanged(2) // entering
-                        onStateChanged(3) // active
-                    } else {
-                        onStateChanged(4) // exiting
-                        onStateChanged(1) // inactive
-                    }
-                }
-
-                // Unused lifecycle overrides
-                override fun onActivityCreated(a: Activity, b: android.os.Bundle?) {}
-                override fun onActivityStarted(a: Activity) {}
-                override fun onActivityPaused(a: Activity) {}
-                override fun onActivityStopped(a: Activity) {}
-                override fun onActivitySaveInstanceState(a: Activity, b: android.os.Bundle) {}
-                override fun onActivityDestroyed(a: Activity) {}
             }
-        )
+            override fun onActivityPictureInPictureModeChanged(
+                a: Activity,
+                isInPip: Boolean,
+                newConfig: Configuration,
+            ) {
+                if (a !== activity) return
+                if (isInPip) {
+                    onStateChanged(2) // entering
+                    onStateChanged(3) // active
+                } else {
+                    onStateChanged(4) // exiting
+                    onStateChanged(1) // inactive
+                }
+            }
+
+            // Unused lifecycle overrides
+            override fun onActivityCreated(a: Activity, b: android.os.Bundle?) {}
+            override fun onActivityStarted(a: Activity) {}
+            override fun onActivityPaused(a: Activity) {}
+            override fun onActivityStopped(a: Activity) {}
+            override fun onActivitySaveInstanceState(a: Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: Activity) {}
+        }
+        lifecycleCallbacks = callbacks
+        binding.activity.application.registerActivityLifecycleCallbacks(callbacks)
     }
 
     fun detach() {
-        // Lifecycle callbacks are registered on Application; cleaned up when Activity is destroyed.
+        lifecycleCallbacks?.let { callbacks ->
+            activity.application.unregisterActivityLifecycleCallbacks(callbacks)
+            lifecycleCallbacks = null
+        }
     }
 
     /** Called from the Activity's onUserLeaveHint (home button) on API 26–30. */

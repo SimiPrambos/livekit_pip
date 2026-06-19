@@ -115,12 +115,13 @@ class MainActivity : LiveKitPipActivity() {
 Override `onUserLeaveHint()` and forward to the plugin:
 
 ```kotlin
-import dev.kaffah.livekit_pip_android.PipHelper
+import dev.kaffah.PipPlugin
 
 class MainActivity : MyCustomActivityBase() {
   override fun onUserLeaveHint() {
-    PipHelper.instance.onUserLeaveHint(this)
     super.onUserLeaveHint()
+    val plugin = flutterEngine?.plugins?.get(PipPlugin::class.java) as? PipPlugin
+    plugin?.onUserLeaveHint()
   }
 }
 ```
