@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:livekit_client/livekit_client.dart';
 import 'package:livekit_pip/src/active_speaker_selector.dart';
+import 'package:livekit_pip/src/aspect_ratio.dart';
 import 'package:livekit_pip/src/pip_configuration.dart';
 import 'package:livekit_pip/src/pip_state.dart';
 import 'package:livekit_pip_platform_interface/livekit_pip_platform_interface.dart';
@@ -22,12 +23,19 @@ class LiveKitPip {
   bool _disposed = false;
   bool _supported = false;
   LiveKitPipConfiguration? _config;
+  Room? _room;
 
   /// Continuous stream of PiP lifecycle state changes.
   ///
   /// Emits [PipState.unsupported] if the device does not support PiP.
   /// Closed (done event) when [dispose] is called.
   Stream<PipState> get stateStream => _stateController.stream;
+
+  /// The room passed to [initialize], or null before initialize / after dispose.
+  Room? get room => _room;
+
+  /// The configuration passed to [initialize], or null before initialize.
+  LiveKitPipConfiguration? get configuration => _config;
 
   /// Returns true if PiP is supported on the current device.
   ///
@@ -51,11 +59,21 @@ class LiveKitPip {
       );
     }
     _config = config;
+    _room = room;
     _speakerSelector = ActiveSpeakerSelector(
       room: room,
       onTrackChanged: (trackId) {
         if (trackId != null && _initialized && !_disposed) {
           unawaited(LivekitPipPlatform.instance.updateActiveTrack(trackId));
+        }
+      },
+      onAspectRatioChanged: (width, height) {
+        if (!_initialized || _disposed) return;
+        final r = clampPipAspectRatio(width, height);
+        if (r.width > 0 && r.height > 0) {
+          unawaited(
+            LivekitPipPlatform.instance.updateAspectRatio(r.width, r.height),
+          );
         }
       },
     );
@@ -91,6 +109,15 @@ class LiveKitPip {
     final initialTrackId = _speakerSelector?.currentBestTrackId;
     if (initialTrackId != null) {
       unawaited(LivekitPipPlatform.instance.updateActiveTrack(initialTrackId));
+    }
+    final initialDim = _speakerSelector?.currentBestDimensions;
+    if (initialDim != null) {
+      final r = clampPipAspectRatio(initialDim.width, initialDim.height);
+      if (r.width > 0 && r.height > 0) {
+        unawaited(
+          LivekitPipPlatform.instance.updateAspectRatio(r.width, r.height),
+        );
+      }
     }
   }
 
@@ -136,6 +163,7 @@ class LiveKitPip {
     await LivekitPipPlatform.instance.dispose();
     await _stateController.close();
     _config = null;
+    _room = null;
     _initialized = false;
   }
 

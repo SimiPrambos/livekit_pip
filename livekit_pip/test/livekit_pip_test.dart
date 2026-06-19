@@ -42,6 +42,8 @@ void main() {
     when(() => platform.exitPip()).thenAnswer((_) async {});
     when(() => platform.dispose()).thenAnswer((_) async {});
     when(() => platform.updateActiveTrack(any())).thenAnswer((_) async {});
+    when(() => platform.updateAspectRatio(any(), any()))
+        .thenAnswer((_) async {});
   });
 
   tearDown(() async {
@@ -147,6 +149,19 @@ void main() {
       // _initialized=true, so enterPiP's _assertInitialized fires first.
       final pip = LiveKitPip();
       expect(pip.enterPiP, throwsStateError);
+    });
+
+    test('exposes room and configuration after initialize', () async {
+      final pip = LiveKitPip();
+      final room = Room();
+      final config = _config();
+      await pip.initialize(room: room, config: config);
+
+      expect(pip.room, same(room));
+      expect(pip.configuration, same(config));
+
+      await pip.dispose();
+      await room.dispose();
     });
   });
 }
