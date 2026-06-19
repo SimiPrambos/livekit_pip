@@ -47,6 +47,12 @@ abstract class LivekitPipPlatform extends PlatformInterface {
   /// Called when the dominant speaker's video track ID changes.
   Future<void> updateActiveTrack(String trackId);
 
+  /// Called when the dominant video's aspect ratio changes.
+  ///
+  /// Used on Android to size the PiP window. Default is a no-op; iOS derives
+  /// its aspect ratio from native frames and does not override this.
+  Future<void> updateAspectRatio(int width, int height) async {}
+
   /// Stream of raw PipState int values (matching PipState enum ordinals).
   ///
   /// Emit order: 0=unsupported, 1=inactive, 2=entering, 3=active, 4=exiting.
