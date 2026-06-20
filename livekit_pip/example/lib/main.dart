@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:livekit_pip/livekit_pip.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(const MyApp());
 
@@ -35,7 +36,7 @@ class _ConnectPageState extends State<ConnectPage> {
   final _tokenController = TextEditingController(
     text:
         // ignore: lines_longer_than_80_chars, JWT token cannot be split
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBUEkyUWFVVEM3d3ozRkIiLCJzdWIiOiJ1c2VyMiIsIm5iZiI6MTc4MTc3NTMxNSwiZXhwIjoxNzgxNzc4OTE1LCJuYW1lIjoiVXNlciAyIiwidmlkZW8iOnsicm9vbSI6InRlc3Qtcm9vbSIsInJvb21Kb2luIjp0cnVlLCJjYW5QdWJsaXNoIjp0cnVlLCJjYW5TdWJzY3JpYmUiOnRydWUsImNhblB1Ymxpc2hEYXRhIjp0cnVlfX0.CJMIThK4f1HaJ5JkaI6B6sVoQx46ehr7kLDTt-BBB2E',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBUEkyUWFVVEM3d3ozRkIiLCJzdWIiOiJ1c2VyMiIsIm5iZiI6MTc4MTk1Mjk1NiwiZXhwIjoxNzgxOTU2NTU2LCJuYW1lIjoiVXNlciAyIiwidmlkZW8iOnsicm9vbSI6InRlc3Qtcm9vbSIsInJvb21Kb2luIjp0cnVlLCJjYW5QdWJsaXNoIjp0cnVlLCJjYW5TdWJzY3JpYmUiOnRydWUsImNhblB1Ymxpc2hEYXRhIjp0cnVlfX0.9S0KcU2DNT_a1Jf10a6ccP8KGqXSDF40BZs8Ig38Tgc',
   );
   bool _connecting = false;
 
@@ -51,27 +52,44 @@ class _ConnectPageState extends State<ConnectPage> {
     final token = _tokenController.text.trim();
     if (url.isEmpty || token.isEmpty) return;
     setState(() => _connecting = true);
+    Room? room;
     try {
-      final room = Room();
+      room = Room();
       await room.connect(url, token);
-      await room.localParticipant?.setCameraEnabled(true);
-      await room.localParticipant?.setMicrophoneEnabled(true);
-      if (!mounted) {
-        await room.disconnect();
-        return;
-      }
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => CallPage(room: room)),
-      );
-    } on Exception catch (e) {
+    } catch (e) {
+      room?.disconnect().ignore();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Connect failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connect failed: $e')),
+        );
       }
-    } finally {
-      if (mounted) setState(() => _connecting = false);
+      setState(() => _connecting = false);
+      return;
     }
+
+    // Request camera + mic at runtime before enabling tracks.
+    // Non-fatal: navigate to call page regardless so remote video still works.
+    await [Permission.camera, Permission.microphone].request();
+
+    try {
+      await room.localParticipant?.setCameraEnabled(true);
+    } catch (e) {
+      debugPrint('[livekit_pip_example] setCameraEnabled failed: $e');
+    }
+    try {
+      await room.localParticipant?.setMicrophoneEnabled(true);
+    } catch (e) {
+      debugPrint('[livekit_pip_example] setMicrophoneEnabled failed: $e');
+    }
+
+    if (!mounted) {
+      await room.disconnect();
+      return;
+    }
+    setState(() => _connecting = false);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => CallPage(room: room!)),
+    );
   }
 
   @override
@@ -225,49 +243,49 @@ class _CallPageState extends State<CallPage> {
         pip: _pip,
         builder: (context) => Stack(
           children: [
-          // iOS: transparent source view for AVPictureInPictureController.
-          // Must fill the screen so isPictureInPicturePossible stays true.
-          // Placed first (lowest z-order) so Flutter content renders on top.
-          Positioned.fill(child: LiveKitPipView(room: widget.room)),
+            // iOS: transparent source view for AVPictureInPictureController.
+            // Must fill the screen so isPictureInPicturePossible stays true.
+            // Placed first (lowest z-order) so Flutter content renders on top.
+            Positioned.fill(child: LiveKitPipView(room: widget.room)),
 
-          if (remoteVideos.isEmpty)
-            const Center(
-              child: Text(
-                'Waiting for participants…',
-                style: TextStyle(color: Colors.white54),
-              ),
-            )
-          else
-            _VideoGrid(videos: remoteVideos),
+            if (remoteVideos.isEmpty)
+              const Center(
+                child: Text(
+                  'Waiting for participants…',
+                  style: TextStyle(color: Colors.white54),
+                ),
+              )
+            else
+              _VideoGrid(videos: remoteVideos),
 
-          if (localVideo != null)
-            Positioned(
-              right: 16,
-              bottom: 100,
-              width: 96,
-              height: 128,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: VideoTrackRenderer(
-                  localVideo,
-                  mirrorMode: VideoViewMirrorMode.mirror,
-                  fit: VideoViewFit.cover,
+            if (localVideo != null)
+              Positioned(
+                right: 16,
+                bottom: 100,
+                width: 96,
+                height: 128,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: VideoTrackRenderer(
+                    localVideo,
+                    mirrorMode: VideoViewMirrorMode.mirror,
+                    fit: VideoViewFit.cover,
+                  ),
                 ),
               ),
-            ),
 
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: _BottomBar(room: widget.room, onHangUp: _hangUp),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: _BottomBar(room: widget.room, onHangUp: _hangUp),
+              ),
             ),
-          ),
-        ],
-        ),  // end Stack children list + Stack
-      ),    // end LiveKitPipScaffold
-    );      // end Scaffold
+          ],
+        ), // end Stack children list + Stack
+      ), // end LiveKitPipScaffold
+    ); // end Scaffold
   }
 }
 

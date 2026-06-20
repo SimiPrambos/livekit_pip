@@ -68,6 +68,11 @@ class PipPlugin : FlutterPlugin, ActivityAware, LiveKitPipHostApi {
         pipHelper?.onUserLeaveHint()
     }
 
+    /** Forwarded from LiveKitPipActivity.onPictureInPictureModeChanged. */
+    fun onPictureInPictureModeChanged(isInPip: Boolean) {
+        pipHelper?.onPictureInPictureModeChanged(isInPip)
+    }
+
     override fun dispose() {
         pipHelper?.detach()
         pipHelper = null

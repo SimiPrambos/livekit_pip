@@ -2,7 +2,6 @@ package dev.kaffah
 
 import android.app.Activity
 import android.app.PictureInPictureParams
-import android.content.res.Configuration
 import android.os.Build
 import android.util.Rational
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -11,6 +10,9 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
  * Builds PictureInPictureParams and manages enter/exit for both API paths:
  * - API 31+: setAutoEnterEnabled(true) in onResume
  * - API 26–30: enter manually in onUserLeaveHint
+ *
+ * PiP mode changes are detected via LiveKitPipActivity.onPictureInPictureModeChanged
+ * forwarding to [onPictureInPictureModeChanged] for all API levels.
  */
 class PipHelper(
     private val activity: Activity,
@@ -42,22 +44,7 @@ class PipHelper(
                     )
                 }
             }
-            override fun onActivityPictureInPictureModeChanged(
-                a: Activity,
-                isInPip: Boolean,
-                newConfig: Configuration,
-            ) {
-                if (a !== activity) return
-                if (isInPip) {
-                    onStateChanged(2) // entering
-                    onStateChanged(3) // active
-                } else {
-                    onStateChanged(4) // exiting
-                    onStateChanged(1) // inactive
-                }
-            }
 
-            // Unused lifecycle overrides
             override fun onActivityCreated(a: Activity, b: android.os.Bundle?) {}
             override fun onActivityStarted(a: Activity) {}
             override fun onActivityPaused(a: Activity) {}
@@ -73,6 +60,17 @@ class PipHelper(
         lifecycleCallbacks?.let { callbacks ->
             activity.application.unregisterActivityLifecycleCallbacks(callbacks)
             lifecycleCallbacks = null
+        }
+    }
+
+    /** Called from LiveKitPipActivity.onPictureInPictureModeChanged (all API levels). */
+    fun onPictureInPictureModeChanged(isInPip: Boolean) {
+        if (isInPip) {
+            onStateChanged(2) // entering
+            onStateChanged(3) // active
+        } else {
+            onStateChanged(4) // exiting
+            onStateChanged(1) // inactive
         }
     }
 
