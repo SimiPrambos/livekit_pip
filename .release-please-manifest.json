@@ -1,6 +1,6 @@
 {
-  "livekit_pip": "0.1.0+1",
-  "livekit_pip_android": "0.1.0+1",
-  "livekit_pip_ios": "0.1.0+1",
-  "livekit_pip_platform_interface": "0.1.0+1"
+  "livekit_pip": "0.1.0",
+  "livekit_pip_android": "0.1.0",
+  "livekit_pip_ios": "0.1.0",
+  "livekit_pip_platform_interface": "0.1.0"
 }
