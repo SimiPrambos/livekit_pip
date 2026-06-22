@@ -14,11 +14,11 @@ class _MockPlatform extends Mock
     implements LivekitPipPlatform {}
 
 LiveKitPipConfiguration _config() => LiveKitPipConfiguration(
-      android: AndroidPipConfiguration(
-        pipWidgetBuilder: (_, _) => const Text('PIP'),
-      ),
-      ios: const IosPipConfiguration(),
-    );
+  android: AndroidPipConfiguration(
+    pipWidgetBuilder: (_, _) => const Text('PIP'),
+  ),
+  ios: const IosPipConfiguration(),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,11 +35,13 @@ void main() {
       () => platform.initialize(
         enabled: any(named: 'enabled'),
         disableWhenScreenSharing: any(named: 'disableWhenScreenSharing'),
-        androidAutoEnterOnBackground:
-            any(named: 'androidAutoEnterOnBackground'),
+        androidAutoEnterOnBackground: any(
+          named: 'androidAutoEnterOnBackground',
+        ),
         iosAutoEnterOnBackground: any(named: 'iosAutoEnterOnBackground'),
-        iosIncludeLocalParticipantVideo:
-            any(named: 'iosIncludeLocalParticipantVideo'),
+        iosIncludeLocalParticipantVideo: any(
+          named: 'iosIncludeLocalParticipantVideo',
+        ),
         videoWidth: any(named: 'videoWidth'),
         videoHeight: any(named: 'videoHeight'),
       ),
@@ -47,8 +49,9 @@ void main() {
     when(() => platform.stateStream).thenAnswer((_) => stateRaw.stream);
     when(() => platform.dispose()).thenAnswer((_) async {});
     when(() => platform.updateActiveTrack(any())).thenAnswer((_) async {});
-    when(() => platform.updateAspectRatio(any(), any()))
-        .thenAnswer((_) async {});
+    when(
+      () => platform.updateAspectRatio(any(), any()),
+    ).thenAnswer((_) async {});
   });
 
   tearDown(() async {
@@ -56,8 +59,9 @@ void main() {
     await stateRaw.close();
   });
 
-  testWidgets('Android: shows pip widget when active, builder otherwise',
-      (tester) async {
+  testWidgets('Android: shows pip widget when active, builder otherwise', (
+    tester,
+  ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     final pip = LiveKitPip();
     final room = Room();

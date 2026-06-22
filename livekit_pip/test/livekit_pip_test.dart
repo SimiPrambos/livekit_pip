@@ -28,11 +28,13 @@ void main() {
       () => platform.initialize(
         enabled: any(named: 'enabled'),
         disableWhenScreenSharing: any(named: 'disableWhenScreenSharing'),
-        androidAutoEnterOnBackground:
-            any(named: 'androidAutoEnterOnBackground'),
+        androidAutoEnterOnBackground: any(
+          named: 'androidAutoEnterOnBackground',
+        ),
         iosAutoEnterOnBackground: any(named: 'iosAutoEnterOnBackground'),
-        iosIncludeLocalParticipantVideo:
-            any(named: 'iosIncludeLocalParticipantVideo'),
+        iosIncludeLocalParticipantVideo: any(
+          named: 'iosIncludeLocalParticipantVideo',
+        ),
         videoWidth: any(named: 'videoWidth'),
         videoHeight: any(named: 'videoHeight'),
       ),
@@ -42,8 +44,9 @@ void main() {
     when(() => platform.exitPip()).thenAnswer((_) async {});
     when(() => platform.dispose()).thenAnswer((_) async {});
     when(() => platform.updateActiveTrack(any())).thenAnswer((_) async {});
-    when(() => platform.updateAspectRatio(any(), any()))
-        .thenAnswer((_) async {});
+    when(
+      () => platform.updateAspectRatio(any(), any()),
+    ).thenAnswer((_) async {});
   });
 
   tearDown(() async {
@@ -116,31 +119,35 @@ void main() {
       expect(states, contains(PipState.unsupported));
     });
 
-    test('initialize throws UnsupportedError when isSupported returns false',
-        () async {
-      when(() => platform.isSupported()).thenAnswer((_) async => false);
-      final pip = LiveKitPip();
-      await expectLater(
-        () => pip.initialize(room: Room(), config: _config()),
-        throwsA(isA<UnsupportedError>()),
-      );
-    });
+    test(
+      'initialize throws UnsupportedError when isSupported returns false',
+      () async {
+        when(() => platform.isSupported()).thenAnswer((_) async => false);
+        final pip = LiveKitPip();
+        await expectLater(
+          () => pip.initialize(room: Room(), config: _config()),
+          throwsA(isA<UnsupportedError>()),
+        );
+      },
+    );
 
-    test('stateStream emits unsupported before throwing in initialize',
-        () async {
-      when(() => platform.isSupported()).thenAnswer((_) async => false);
-      final pip = LiveKitPip();
-      final states = <PipState>[];
-      final sub = pip.stateStream.listen(states.add);
-      // UnsupportedError extends Error; expectLater handles it cleanly.
-      await expectLater(
-        () => pip.initialize(room: Room(), config: _config()),
-        throwsA(isA<UnsupportedError>()),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      await sub.cancel();
-      expect(states, contains(PipState.unsupported));
-    });
+    test(
+      'stateStream emits unsupported before throwing in initialize',
+      () async {
+        when(() => platform.isSupported()).thenAnswer((_) async => false);
+        final pip = LiveKitPip();
+        final states = <PipState>[];
+        final sub = pip.stateStream.listen(states.add);
+        // UnsupportedError extends Error; expectLater handles it cleanly.
+        await expectLater(
+          () => pip.initialize(room: Room(), config: _config()),
+          throwsA(isA<UnsupportedError>()),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await sub.cancel();
+        expect(states, contains(PipState.unsupported));
+      },
+    );
 
     test('enterPiP throws StateError when called before initialize', () async {
       // enterPiP before initialize always throws StateError.
@@ -170,6 +177,6 @@ Widget _dummyBuilder(BuildContext context, Room room) =>
     const SizedBox.shrink();
 
 LiveKitPipConfiguration _config() => const LiveKitPipConfiguration(
-      android: AndroidPipConfiguration(pipWidgetBuilder: _dummyBuilder),
-      ios: IosPipConfiguration(),
-    );
+  android: AndroidPipConfiguration(pipWidgetBuilder: _dummyBuilder),
+  ios: IosPipConfiguration(),
+);

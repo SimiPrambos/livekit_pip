@@ -18,9 +18,9 @@ class ActiveSpeakerSelector {
     required Room room,
     required void Function(String? trackId) onTrackChanged,
     void Function(int width, int height)? onAspectRatioChanged,
-  })  : _room = room,
-        _onTrackChanged = onTrackChanged,
-        _onAspectRatioChanged = onAspectRatioChanged {
+  }) : _room = room,
+       _onTrackChanged = onTrackChanged,
+       _onAspectRatioChanged = onAspectRatioChanged {
     _listener = room.createListener()
       ..on<ActiveSpeakersChangedEvent>(_onActiveSpeakersChanged)
       ..on<TrackMutedEvent>(_onTrackMuted)

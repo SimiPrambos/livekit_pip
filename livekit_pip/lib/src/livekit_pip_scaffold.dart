@@ -33,8 +33,7 @@ class LiveKitPipScaffold extends StatelessWidget {
       initialData: PipState.inactive,
       builder: (context, snapshot) {
         final state = snapshot.data ?? PipState.inactive;
-        final inPip =
-            state == PipState.entering || state == PipState.active;
+        final inPip = state == PipState.entering || state == PipState.active;
         final room = pip.room;
         final pipBuilder = pip.configuration?.android.pipWidgetBuilder;
         if (inPip && room != null && pipBuilder != null) {

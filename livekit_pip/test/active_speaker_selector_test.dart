@@ -38,18 +38,20 @@ void main() {
       await room.dispose();
     });
 
-    test('accepts onAspectRatioChanged and exposes currentBestDimensions',
-        () async {
-      final room = Room();
-      final selector = ActiveSpeakerSelector(
-        room: room,
-        onTrackChanged: (_) {},
-        onAspectRatioChanged: (_, _) {},
-      );
-      // Empty room → no dimensions known yet.
-      expect(selector.currentBestDimensions, isNull);
-      await selector.dispose();
-      await room.dispose();
-    });
+    test(
+      'accepts onAspectRatioChanged and exposes currentBestDimensions',
+      () async {
+        final room = Room();
+        final selector = ActiveSpeakerSelector(
+          room: room,
+          onTrackChanged: (_) {},
+          onAspectRatioChanged: (_, _) {},
+        );
+        // Empty room → no dimensions known yet.
+        expect(selector.currentBestDimensions, isNull);
+        await selector.dispose();
+        await room.dispose();
+      },
+    );
   });
 }

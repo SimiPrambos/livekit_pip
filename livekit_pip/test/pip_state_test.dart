@@ -55,11 +55,13 @@ void main() {
         () => platform.initialize(
           enabled: any(named: 'enabled'),
           disableWhenScreenSharing: any(named: 'disableWhenScreenSharing'),
-          androidAutoEnterOnBackground:
-              any(named: 'androidAutoEnterOnBackground'),
+          androidAutoEnterOnBackground: any(
+            named: 'androidAutoEnterOnBackground',
+          ),
           iosAutoEnterOnBackground: any(named: 'iosAutoEnterOnBackground'),
-          iosIncludeLocalParticipantVideo:
-              any(named: 'iosIncludeLocalParticipantVideo'),
+          iosIncludeLocalParticipantVideo: any(
+            named: 'iosIncludeLocalParticipantVideo',
+          ),
           videoWidth: any(named: 'videoWidth'),
           videoHeight: any(named: 'videoHeight'),
         ),
