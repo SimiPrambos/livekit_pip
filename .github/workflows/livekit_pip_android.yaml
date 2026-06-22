@@ -23,6 +23,6 @@ jobs:
       flutter_version: 3.41.1
       working_directory: livekit_pip_android
       test_optimization: false
-      coverage_exclusions: "**/*.g.dart"
+      coverage_excludes: "**/*.g.dart"
       min_coverage: 0
 
