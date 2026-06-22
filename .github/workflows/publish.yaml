@@ -2,8 +2,10 @@ name: publish
 
 on:
   push:
+    # Triggered by the release-please-created tag for the main app-facing package.
+    # release-please tags components as "<component>-v<version>", e.g. livekit_pip-v0.2.0
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+*"
+      - "livekit_pip-v[0-9]+.[0-9]+.[0-9]+*"
 
 # OIDC token required for pub.dev trusted publishing (no stored credentials).
 # Configure the publisher on pub.dev to allow:

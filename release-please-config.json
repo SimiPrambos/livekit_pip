@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "dart",
+  "group-pull-request-title-pattern": "chore: release ${version}",
+  "packages": {
+    "livekit_pip": {
+      "component": "livekit_pip"
+    },
+    "livekit_pip_android": {
+      "component": "livekit_pip_android"
+    },
+    "livekit_pip_ios": {
+      "component": "livekit_pip_ios"
+    },
+    "livekit_pip_platform_interface": {
+      "component": "livekit_pip_platform_interface"
+    }
+  }
+}
