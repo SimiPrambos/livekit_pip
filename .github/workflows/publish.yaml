@@ -5,7 +5,12 @@ on:
     # Triggered by the release-please-created tag for the main app-facing package.
     # release-please tags components as "<component>-v<version>", e.g. livekit_pip-v0.2.0
     tags:
-      - "livekit_pip-v[0-9]+.[0-9]+.[0-9]+*"
+      - "livekit_pip-v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Set to true to run dart pub publish --dry-run instead of publishing"
+        default: "false"
 
 # OIDC token required for pub.dev trusted publishing (no stored credentials).
 # Configure the publisher on pub.dev to allow:
@@ -31,7 +36,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Publish
-        run: dart pub publish --force
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            dart pub publish --dry-run
+          else
+            dart pub publish --force
+          fi
 
   # Step 2 — publish Android and iOS implementations in parallel (both depend on platform_interface).
   publish-android:
@@ -49,7 +59,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Publish
-        run: dart pub publish --force
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            dart pub publish --dry-run
+          else
+            dart pub publish --force
+          fi
 
   publish-ios:
     name: Publish livekit_pip_ios
@@ -66,7 +81,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Publish
-        run: dart pub publish --force
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            dart pub publish --dry-run
+          else
+            dart pub publish --force
+          fi
 
   # Step 3 — publish the app-facing package last.
   publish-main:
@@ -84,4 +104,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Publish
-        run: dart pub publish --force
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            dart pub publish --dry-run
+          else
+            dart pub publish --force
+          fi
