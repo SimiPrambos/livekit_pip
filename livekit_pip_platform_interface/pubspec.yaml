@@ -1,6 +1,6 @@
 name: livekit_pip_platform_interface
 description: Platform interface for the livekit_pip plugin — defines the shared contract for Android and iOS implementations.
-version: 0.1.0+1
+version: 0.2.0+2
 homepage: https://github.com/SimiPrambos/livekit_pip
 repository: https://github.com/SimiPrambos/livekit_pip/tree/main/livekit_pip_platform_interface
 
