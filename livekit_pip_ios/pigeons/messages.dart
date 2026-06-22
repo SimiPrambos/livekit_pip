@@ -6,8 +6,7 @@ import 'package:pigeon/pigeon.dart';
   PigeonOptions(
     dartOut: 'lib/src/messages.g.dart',
     dartPackageName: 'livekit_pip_ios',
-    swiftOut:
-        'ios/livekit_pip_ios/Sources/livekit_pip_ios/Messages.g.swift',
+    swiftOut: 'ios/livekit_pip_ios/Sources/livekit_pip_ios/Messages.g.swift',
     swiftOptions: SwiftOptions(),
     copyrightHeader: 'pigeons/copyright.txt',
   ),

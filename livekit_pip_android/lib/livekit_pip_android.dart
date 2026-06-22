@@ -29,18 +29,17 @@ class LivekitPipAndroid extends LivekitPipPlatform {
     required bool iosIncludeLocalParticipantVideo,
     required int videoWidth,
     required int videoHeight,
-  }) =>
-      _api.initialize(
-        PipInitRequest(
-          enabled: enabled,
-          disableWhenScreenSharing: disableWhenScreenSharing,
-          androidAutoEnterOnBackground: androidAutoEnterOnBackground,
-          iosAutoEnterOnBackground: iosAutoEnterOnBackground,
-          iosIncludeLocalParticipantVideo: iosIncludeLocalParticipantVideo,
-          videoWidth: videoWidth,
-          videoHeight: videoHeight,
-        ),
-      );
+  }) => _api.initialize(
+    PipInitRequest(
+      enabled: enabled,
+      disableWhenScreenSharing: disableWhenScreenSharing,
+      androidAutoEnterOnBackground: androidAutoEnterOnBackground,
+      iosAutoEnterOnBackground: iosAutoEnterOnBackground,
+      iosIncludeLocalParticipantVideo: iosIncludeLocalParticipantVideo,
+      videoWidth: videoWidth,
+      videoHeight: videoHeight,
+    ),
+  );
 
   @override
   Future<void> enterPip() => _api.enterPip();

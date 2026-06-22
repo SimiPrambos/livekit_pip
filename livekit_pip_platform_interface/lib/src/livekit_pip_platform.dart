@@ -5,7 +5,10 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 ///
 /// Platform implementations should extend this class rather than implement it.
 abstract class LivekitPipPlatform extends PlatformInterface {
-  /// {@macro livekit_pip_platform}
+  /// Creates a [LivekitPipPlatform] instance.
+  ///
+  /// Platform implementations must call this constructor with the [_token]
+  /// to allow [PlatformInterface.verify] to guard against fake implementations.
   LivekitPipPlatform() : super(token: _token);
 
   static final Object _token = Object();
