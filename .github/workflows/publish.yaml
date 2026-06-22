@@ -1,0 +1,85 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+# OIDC token required for pub.dev trusted publishing (no stored credentials).
+# Configure the publisher on pub.dev to allow:
+#   Repository: SimiPrambos/livekit_pip
+#   Workflow:   publish.yaml
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # Step 1 — publish the platform interface first (all other packages depend on it).
+  publish-platform-interface:
+    name: Publish livekit_pip_platform_interface
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: livekit_pip_platform_interface
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Publish
+        run: dart pub publish --force
+
+  # Step 2 — publish Android and iOS implementations in parallel (both depend on platform_interface).
+  publish-android:
+    name: Publish livekit_pip_android
+    needs: publish-platform-interface
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: livekit_pip_android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Publish
+        run: dart pub publish --force
+
+  publish-ios:
+    name: Publish livekit_pip_ios
+    needs: publish-platform-interface
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: livekit_pip_ios
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Publish
+        run: dart pub publish --force
+
+  # Step 3 — publish the app-facing package last.
+  publish-main:
+    name: Publish livekit_pip
+    needs: [publish-android, publish-ios]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: livekit_pip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Publish
+        run: dart pub publish --force
