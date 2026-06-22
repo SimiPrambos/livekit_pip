@@ -6,6 +6,7 @@ repository: https://github.com/SimiPrambos/livekit_pip/tree/main/livekit_pip_ios
 
 environment:
   sdk: ^3.11.0
+  flutter: ">=3.0.0"
 
 flutter:
   plugin:
@@ -19,6 +20,7 @@ dependencies:
   flutter:
     sdk: flutter
   livekit_pip_platform_interface: ^0.1.0
+  meta: ^1.7.0
 
 dev_dependencies:
   flutter_test:

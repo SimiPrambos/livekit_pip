@@ -6,6 +6,7 @@ repository: https://github.com/SimiPrambos/livekit_pip/tree/main/livekit_pip_pla
 
 environment:
   sdk: ^3.11.0
+  flutter: ">=3.0.0"
 
 dependencies:
   flutter:
