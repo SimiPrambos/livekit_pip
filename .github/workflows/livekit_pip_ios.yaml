@@ -22,4 +22,5 @@ jobs:
     with:
       flutter_version: 3.41.1
       working_directory: livekit_pip_ios
+      test_optimization: false
 

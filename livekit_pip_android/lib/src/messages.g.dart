@@ -11,9 +11,9 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart' show immutable, protected, visibleForTesting;
 
 Object? _extractReplyValueOrThrow(
-    List<Object?>? replyList,
-    String channelName, {
-    required bool isNullValid,
+  List<Object?>? replyList,
+  String channelName, {
+  required bool isNullValid,
 }) {
   if (replyList == null) {
     throw PlatformException(
@@ -47,8 +47,9 @@ bool _deepEquals(Object? a, Object? b) {
   }
   if (a is List && b is List) {
     return a.length == b.length &&
-        a.indexed
-            .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+        a.indexed.every(
+          ((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]),
+        );
   }
   if (a is Map && b is Map) {
     if (a.length != b.length) {
@@ -97,7 +98,6 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
-
 class PipInitRequest {
   PipInitRequest({
     this.enabled = true,
@@ -136,7 +136,8 @@ class PipInitRequest {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static PipInitRequest decode(Object result) {
     result as List<Object?>;
@@ -160,7 +161,19 @@ class PipInitRequest {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(enabled, other.enabled) && _deepEquals(disableWhenScreenSharing, other.disableWhenScreenSharing) && _deepEquals(androidAutoEnterOnBackground, other.androidAutoEnterOnBackground) && _deepEquals(iosAutoEnterOnBackground, other.iosAutoEnterOnBackground) && _deepEquals(iosIncludeLocalParticipantVideo, other.iosIncludeLocalParticipantVideo) && _deepEquals(videoWidth, other.videoWidth) && _deepEquals(videoHeight, other.videoHeight);
+    return _deepEquals(enabled, other.enabled) &&
+        _deepEquals(disableWhenScreenSharing, other.disableWhenScreenSharing) &&
+        _deepEquals(
+          androidAutoEnterOnBackground,
+          other.androidAutoEnterOnBackground,
+        ) &&
+        _deepEquals(iosAutoEnterOnBackground, other.iosAutoEnterOnBackground) &&
+        _deepEquals(
+          iosIncludeLocalParticipantVideo,
+          other.iosIncludeLocalParticipantVideo,
+        ) &&
+        _deepEquals(videoWidth, other.videoWidth) &&
+        _deepEquals(videoHeight, other.videoHeight);
   }
 
   @override
@@ -173,7 +186,6 @@ class PipInitRequest {
   }
 }
 
-
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -181,7 +193,7 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is PipInitRequest) {
+    } else if (value is PipInitRequest) {
       buffer.putUint8(129);
       writeValue(buffer, value.encode());
     } else {
@@ -204,9 +216,13 @@ class LiveKitPipHostApi {
   /// Constructor for [LiveKitPipHostApi]. The [binaryMessenger] named argument is
   /// available for dependency injection. If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  LiveKitPipHostApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
-      : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  LiveKitPipHostApi({
+    BinaryMessenger? binaryMessenger,
+    String messageChannelSuffix = '',
+  }) : pigeonVar_binaryMessenger = binaryMessenger,
+       pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty
+           ? '.$messageChannelSuffix'
+           : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
@@ -214,25 +230,28 @@ class LiveKitPipHostApi {
   final String pigeonVar_messageChannelSuffix;
 
   Future<void> initialize(PipInitRequest request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.initialize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.initialize$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[request],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<void> enterPip() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.enterPip$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.enterPip$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -242,15 +261,15 @@ class LiveKitPipHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<void> exitPip() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.exitPip$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.exitPip$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -260,15 +279,15 @@ class LiveKitPipHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<void> dispose() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.dispose$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.dispose$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -278,15 +297,15 @@ class LiveKitPipHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<bool> isSupported() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.isSupported$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.isSupported$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -296,47 +315,50 @@ class LiveKitPipHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as bool;
   }
 
   Future<void> updateActiveTrack(String trackId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.updateActiveTrack$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.updateActiveTrack$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[trackId]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[trackId],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<void> updateAspectRatio(int width, int height) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.updateAspectRatio$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.livekit_pip_android.LiveKitPipHostApi.updateAspectRatio$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[width, height]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[width, height],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 }
