@@ -1,7 +1,8 @@
 name: livekit_pip
-description: A Very Good Project created by Very Good CLI.
+description: Native Picture-in-Picture support for LiveKit video calls on Android and iOS.
 version: 0.1.0+1
-publish_to: none
+homepage: https://github.com/SimiPrambos/livekit_pip
+repository: https://github.com/SimiPrambos/livekit_pip
 
 environment:
   sdk: ^3.11.0
@@ -18,12 +19,9 @@ dependencies:
   flutter:
     sdk: flutter
   livekit_client: ^2.8.0
-  livekit_pip_android:
-    path: ../livekit_pip_android
-  livekit_pip_ios:
-    path: ../livekit_pip_ios
-  livekit_pip_platform_interface:
-    path: ../livekit_pip_platform_interface
+  livekit_pip_android: ^0.1.0
+  livekit_pip_ios: ^0.1.0
+  livekit_pip_platform_interface: ^0.1.0
 
 dev_dependencies:
   flutter_test:
