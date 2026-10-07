@@ -1,6 +1,30 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.0.1 → 1.0.2
+Type of bump: PATCH (platform floor restored)
+
+Modified sections:
+  Platform & Dependency Constraints: iOS deployment target 15.0 → 16.0.
+  At 16.0 iOS grants multitasking camera access without Apple's
+  multitasking-camera-access entitlement, so the live self-view in PiP
+  works for every consumer.
+
+Templates reviewed: no changes needed
+
+Previous report (1.0.1)
+-----------------------
+Version change: 1.0.0 → 1.0.1
+Type of bump: PATCH (platform floor corrected to match shipped code)
+
+Modified sections:
+  Platform & Dependency Constraints: iOS deployment target 16.0 → 15.0
+  (podspec and Package.swift have declared 15.0 since commit acded41)
+  Principle III: the 2-feed limit may be met with a second display layer
+  when the video-call content source is used (spec 002)
+
+Previous report (1.0.0)
+-----------------------
 Version change: [PLACEHOLDER] → 1.0.0
 Type of bump: MINOR (initial population — all placeholders replaced with concrete content)
 
@@ -78,8 +102,10 @@ MUST NOT be converged.
   `AndroidPipConfiguration.pipWidgetBuilder`. No native video rendering on Android.
 - **iOS**: PiP content is always a single `AVSampleBufferDisplayLayer` driven by
   one dominant-speaker video track. An arbitrary N-tile grid MUST NOT be attempted
-  natively on iOS — composite at most a 2-feed (dominant + self-view inset) via
-  `PixelBufferCompositor`.
+  natively on iOS — show at most 2 feeds (dominant + self-view inset). With the
+  video-call content source the inset MAY be a second display-layer view in the
+  content view controller; with the sample-buffer content source it MUST be
+  composited via `PixelBufferCompositor`.
 - The `AVSampleBufferDisplayLayer` and its `AVPictureInPictureController` MUST
   never be recreated mid-call. Track switching MUST rebind the renderer source only.
 - `NativeTrackResolver` MUST be the only file that touches flutter_webrtc internals
@@ -132,8 +158,10 @@ consumers to disable the feature entirely.
 ## Platform & Dependency Constraints
 
 - **Android minSdk**: 26 (legacy enter path); auto-enter API available on 31+.
-- **iOS deployment target**: 16.0. The `Package.swift` MUST declare `platforms: [.iOS(.v16)]`.
-  The current value of 13.0 is a known defect that MUST be corrected in Phase 1.
+- **iOS deployment target**: 16.0. The podspec and `Package.swift` MUST both declare
+  iOS 16.0; every API used is iOS 16+ or gated with `#available`. 16.0 is what
+  lets the live self-view in PiP use multitasking camera access without an
+  Apple entitlement.
 - **Dart dependency**: `livekit_client` (and its transitive `flutter_webrtc`) is the
   only allowed LiveKit-specific dependency. No direct `flutter_webrtc` import from
   the plugin's public API.
@@ -177,4 +205,4 @@ All PRs MUST include a "Constitution Check" confirming no principle is violated.
 If a violation is necessary (e.g., an unavoidable platform quirk), it MUST be
 documented in `plan.md`'s Complexity Tracking table.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-17 | **Last Amended**: 2026-06-17
+**Version**: 1.0.2 | **Ratified**: 2026-06-17 | **Last Amended**: 2026-10-05

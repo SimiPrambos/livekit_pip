@@ -15,6 +15,9 @@ Pod::Spec.new do |s|
   s.source_files     = 'livekit_pip_ios/Sources/**/*.swift'
   s.dependency 'Flutter'
   s.dependency 'flutter_webrtc'
+  # flutter_webrtc is a static framework; apps using use_frameworks! fail
+  # pod install unless this pod links statically too (as livekit_client does).
+  s.static_framework = true
   s.platform         = :ios, '16.0'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',

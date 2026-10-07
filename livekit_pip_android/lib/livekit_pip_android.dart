@@ -29,6 +29,8 @@ class LivekitPipAndroid extends LivekitPipPlatform {
     required bool iosIncludeLocalParticipantVideo,
     required int videoWidth,
     required int videoHeight,
+    bool iosMirrorSelfView = true,
+    bool iosAnimateExit = true,
   }) => _api.initialize(
     PipInitRequest(
       enabled: enabled,
@@ -38,6 +40,8 @@ class LivekitPipAndroid extends LivekitPipPlatform {
       iosIncludeLocalParticipantVideo: iosIncludeLocalParticipantVideo,
       videoWidth: videoWidth,
       videoHeight: videoHeight,
+      iosMirrorSelfView: iosMirrorSelfView,
+      iosAnimateExit: iosAnimateExit,
     ),
   );
 

@@ -1,4 +1,5 @@
 import 'package:livekit_pip_platform_interface/src/method_channel_livekit_pip.dart';
+import 'package:livekit_pip_platform_interface/src/pip_participant_info.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 /// The interface that implementations of livekit_pip must implement.
@@ -28,6 +29,8 @@ abstract class LivekitPipPlatform extends PlatformInterface {
   Future<bool> isSupported();
 
   /// Initializes the native PiP infrastructure with the given configuration.
+  ///
+  /// Android ignores all `ios*` values.
   Future<void> initialize({
     required bool enabled,
     required bool disableWhenScreenSharing,
@@ -36,6 +39,8 @@ abstract class LivekitPipPlatform extends PlatformInterface {
     required bool iosIncludeLocalParticipantVideo,
     required int videoWidth,
     required int videoHeight,
+    bool iosMirrorSelfView = true,
+    bool iosAnimateExit = true,
   });
 
   /// Requests the OS to enter PiP mode.
@@ -55,6 +60,14 @@ abstract class LivekitPipPlatform extends PlatformInterface {
   /// Used on Android to size the PiP window. Default is a no-op; iOS derives
   /// its aspect ratio from native frames and does not override this.
   Future<void> updateAspectRatio(int width, int height) async {}
+
+  /// Called when the tiles of the iOS PiP window change.
+  ///
+  /// Default is a no-op; Android shows the consumer's widget instead and
+  /// does not override this.
+  Future<void> updateParticipants(
+    List<PipParticipantInfo> participants,
+  ) async {}
 
   /// Stream of raw PipState int values (matching PipState enum ordinals).
   ///

@@ -43,12 +43,8 @@ In `Info.plist`, add `voip` (and optionally `audio`) to `UIBackgroundModes`:
 </array>
 ```
 
-For self-view in PiP on iOS 17 and below, add the multitasking camera access entitlement:
-
-```xml
-<key>com.apple.developer.avfoundation.multitasking-camera-access</key>
-<true/>
-```
+The live self-view in PiP needs multitasking camera access, which iOS 16
+grants without an entitlement on devices that support it.
 
 ## Usage
 

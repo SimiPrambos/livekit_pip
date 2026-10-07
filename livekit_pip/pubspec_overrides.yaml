@@ -1,0 +1,7 @@
+dependency_overrides:
+  livekit_pip_android:
+    path: ../livekit_pip_android
+  livekit_pip_ios:
+    path: ../livekit_pip_ios
+  livekit_pip_platform_interface:
+    path: ../livekit_pip_platform_interface

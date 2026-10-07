@@ -35,3 +35,18 @@ final class PipFixedWindowSizePolicy: PipWindowSizePolicy {
         self.fixedSize = fixedSize
     }
 }
+
+/// For tile renderers: reports frame sizes to the tile instead of resizing
+/// the window, since the window's shape depends on every tile.
+final class PipTileSizeObserver: PipWindowSizePolicy {
+    var trackSize: CGSize = .zero {
+        didSet {
+            guard trackSize != oldValue, trackSize != .zero else { return }
+            let size = trackSize
+            // Frame sizes arrive on the WebRTC thread.
+            DispatchQueue.main.async { [weak self] in self?.onChange?(size) }
+        }
+    }
+    weak var controller: PipViewControlling?
+    var onChange: ((CGSize) -> Void)?
+}

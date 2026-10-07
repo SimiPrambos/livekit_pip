@@ -4,42 +4,55 @@ import Flutter
 import UIKit
 import WebRTC
 
-// Hosts PipVideoRenderer as its full-frame content view.
-// PipAdaptiveWindowSizePolicy updates preferredContentSize when track size changes.
+// Hosts the remote and local tiles side by side (PipTileLayout).
 // preferredContentSize must always be > .zero to avoid PGPegasus -1003 crash.
-private final class PipVideoCallViewController:
-    AVPictureInPictureVideoCallViewController,
-    PipViewControlling
-{
-    private(set) var videoRenderer: PipVideoRenderer
+private final class PipVideoCallViewController: AVPictureInPictureVideoCallViewController {
 
-    init() {
-        let policy = PipAdaptiveWindowSizePolicy()
-        let renderer = PipVideoRenderer(windowSizePolicy: policy)
-        videoRenderer = renderer
-        super.init(nibName: nil, bundle: nil)
-        policy.controller = self
+    let remoteTile = PipTileView()
+    let localTile = PipTileView()
+
+    private var visibleTiles: [PipTileView] {
+        [remoteTile, localTile].filter { $0.participant != nil }
     }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        videoRenderer.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(videoRenderer)
-        NSLayoutConstraint.activate([
-            videoRenderer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            videoRenderer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            videoRenderer.topAnchor.constraint(equalTo: view.topAnchor),
-            videoRenderer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        preferredContentSize = CGSize(width: 320, height: 180) // 16:9 until first frame
+        view.backgroundColor = .black
+        for tile in [remoteTile, localTile] {
+            tile.onAspectChanged = { [weak self] in self?.relayout() }
+            view.addSubview(tile)
+        }
+        preferredContentSize = PipTileLayout.emptyWindowSize
+        relayout()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let tiles = visibleTiles
+        let frames = PipTileLayout.frames(layoutTiles(tiles), in: view.bounds)
+        for tile in [remoteTile, localTile] {
+            tile.isHidden = !tiles.contains(tile)
+        }
+        for (tile, frame) in zip(tiles, frames) {
+            tile.frame = frame
+        }
+    }
+
+    /// Re-lays out the tiles and reshapes the window to fit them.
+    func relayout() {
+        guard isViewLoaded else { return }
+        let size = PipTileLayout.windowSize(layoutTiles(visibleTiles))
+        if preferredContentSize != size { preferredContentSize = size }
+        view.setNeedsLayout()
+    }
+
+    private func layoutTiles(_ tiles: [PipTileView]) -> [PipTileLayout.Tile] {
+        tiles.map { PipTileLayout.Tile(isLocal: $0 === localTile, aspect: $0.aspect) }
     }
 }
 
 // containerView is the AVPictureInPictureController activeVideoCallSourceView.
-// Actual rendering happens in PipVideoCallViewController.videoRenderer.
+// Actual rendering happens in PipVideoCallViewController's tiles.
 // Never recreate pipController or the display layer mid-call.
 class PipPlatformView: NSObject, FlutterPlatformView {
 
@@ -48,8 +61,10 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     private var pipController: AVPictureInPictureController?
     private let trackStateAdapter = TrackStateAdapter()
     private let resolver: NativeTrackResolver
+    private var hasLoggedNoMultitaskingCamera = false
 
     var onStateChanged: ((Int) -> Void)?
+    var animateExit = true
 
     init(
         frame: CGRect,
@@ -84,12 +99,35 @@ class PipPlatformView: NSObject, FlutterPlatformView {
 
         // Stop PiP when the app returns to the foreground so the next minimize
         // starts a fresh session.
-        NotificationCenter.default.addObserver(
+        let center = NotificationCenter.default
+        center.addObserver(
             self,
             selector: #selector(handleAppDidBecomeActive),
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        // object: nil because flutter_webrtc owns the session. While iOS has
+        // the camera paused, the local tile shows the avatar instead.
+        center.addObserver(
+            self,
+            selector: #selector(handleCameraInterrupted),
+            name: AVCaptureSession.wasInterruptedNotification,
+            object: nil
+        )
+        center.addObserver(
+            self,
+            selector: #selector(handleCameraInterruptionEnded),
+            name: AVCaptureSession.interruptionEndedNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleCameraInterrupted() {
+        DispatchQueue.main.async { [weak self] in self?.pipVC.localTile.isCameraInterrupted = true }
+    }
+
+    @objc private func handleCameraInterruptionEnded() {
+        DispatchQueue.main.async { [weak self] in self?.pipVC.localTile.isCameraInterrupted = false }
     }
 
     deinit {
@@ -116,9 +154,42 @@ class PipPlatformView: NSObject, FlutterPlatformView {
         pipController?.canStartPictureInPictureAutomaticallyFromInline = autoEnterOnBackground
     }
 
-    func rebindTrack(trackId: String) {
-        pipVC.videoRenderer.track = resolver.resolveVideoTrack(trackId: trackId)
-        trackStateAdapter.activeTrack = pipVC.videoRenderer.track
+    func setMirrorSelfView(_ isMirrored: Bool) {
+        pipVC.localTile.isMirrored = isMirrored
+    }
+
+    /// Binds the remote and local tiles; an absent participant clears its tile.
+    func updateParticipants(_ participants: [PipParticipant]) {
+        let remote = participants.first { !$0.isLocal }
+        let local = participants.first { $0.isLocal }
+        let resolve: (String) -> RTCVideoTrack? = { [resolver] in resolver.resolveVideoTrack(trackId: $0) }
+        pipVC.remoteTile.apply(remote, resolveTrack: resolve)
+        pipVC.localTile.apply(local, resolveTrack: resolve)
+        trackStateAdapter.activeTrack = pipVC.remoteTile.track
+        if pipVC.localTile.track != nil { enableMultitaskingCamera() }
+        pipVC.relayout()
+    }
+
+    // Without this iOS pauses the camera as soon as the app leaves the
+    // foreground, so the local tile could never be live in PiP. Apple asks for
+    // the flag before the session starts; flutter_webrtc has already started
+    // it, so it is set inside a configuration block instead.
+    private func enableMultitaskingCamera() {
+        guard let session = resolver.cameraCaptureSession() else { return }
+        guard !session.isMultitaskingCameraAccessEnabled else { return }
+        guard session.isMultitaskingCameraAccessSupported else {
+            if !hasLoggedNoMultitaskingCamera {
+                hasLoggedNoMultitaskingCamera = true
+                print("[livekit_pip] multitasking camera access not supported; the local tile will show the avatar in PiP")
+            }
+            return
+        }
+        // Session configuration blocks; keep it off the main thread.
+        DispatchQueue.global(qos: .userInitiated).async {
+            session.beginConfiguration()
+            session.isMultitaskingCameraAccessEnabled = true
+            session.commitConfiguration()
+        }
     }
 
     func startPictureInPicture() {
@@ -132,6 +203,13 @@ class PipPlatformView: NSObject, FlutterPlatformView {
     func stopPictureInPicture() {
         pipController?.stopPictureInPicture()
     }
+
+    fileprivate func setPipContentHidden(_ isHidden: Bool) {
+        UIView.performWithoutAnimation {
+            pipVC.view.alpha = isHidden ? 0 : 1
+            pipVC.view.backgroundColor = isHidden ? .clear : .black
+        }
+    }
 }
 
 // MARK: - AVPictureInPictureControllerDelegate
@@ -141,6 +219,7 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
     func pictureInPictureControllerWillStartPictureInPicture(
         _ controller: AVPictureInPictureController
     ) {
+        setPipContentHidden(false)
         onStateChanged?(2) // entering
     }
 
@@ -148,13 +227,18 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
         _ controller: AVPictureInPictureController
     ) {
         trackStateAdapter.isEnabled = true
-        pipVC.videoRenderer.resumeStreaming()
+        pipVC.remoteTile.resumeStreaming()
+        pipVC.localTile.resumeStreaming()
         onStateChanged?(3) // active
     }
 
     func pictureInPictureControllerWillStopPictureInPicture(
         _ controller: AVPictureInPictureController
     ) {
+        // AVKit grows the window back over the source view as it closes,
+        // stretching the tiles across the call screen. Hiding them lets the
+        // call UI show through instead.
+        if !animateExit { setPipContentHidden(true) }
         onStateChanged?(4) // exiting
     }
 
@@ -162,6 +246,7 @@ extension PipPlatformView: AVPictureInPictureControllerDelegate {
         _ controller: AVPictureInPictureController
     ) {
         trackStateAdapter.isEnabled = false
+        setPipContentHidden(false)
         onStateChanged?(1) // inactive
     }
 

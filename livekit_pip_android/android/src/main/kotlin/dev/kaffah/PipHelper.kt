@@ -18,19 +18,37 @@ class PipHelper(
     private val activity: Activity,
     private val onStateChanged: (Int) -> Unit,
 ) {
-    private var autoEnter = true
+    private var autoEnter = false
     private var aspectWidth = 16
     private var aspectHeight = 9
     private var lifecycleCallbacks: android.app.Application.ActivityLifecycleCallbacks? = null
 
     fun configure(request: PipInitRequest) {
-        autoEnter = request.androidAutoEnterOnBackground
+        autoEnter = request.enabled && request.androidAutoEnterOnBackground
         if (request.videoWidth > 0 && request.videoHeight > 0) {
             aspectWidth = request.videoWidth.toInt()
             aspectHeight = request.videoHeight.toInt()
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && autoEnter) {
-            activity.setPictureInPictureParams(buildParams().setAutoEnterEnabled(true).build())
+        applyAutoEnter()
+    }
+
+    /**
+     * Turns auto-enter off. The Activity keeps the last params it was given,
+     * so without this the app keeps entering PiP on Home after the call ends.
+     */
+    fun disable() {
+        autoEnter = false
+        applyAutoEnter()
+    }
+
+    private fun applyAutoEnter() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        try {
+            activity.setPictureInPictureParams(
+                buildParams().setAutoEnterEnabled(autoEnter).build()
+            )
+        } catch (e: IllegalArgumentException) {
+            android.util.Log.w("livekit_pip", "setPictureInPictureParams rejected", e)
         }
     }
 

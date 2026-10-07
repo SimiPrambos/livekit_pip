@@ -20,6 +20,8 @@ class PipInitRequest {
     this.iosIncludeLocalParticipantVideo = true,
     this.videoWidth = 0,
     this.videoHeight = 0,
+    this.iosMirrorSelfView = true,
+    this.iosAnimateExit = true,
   });
 
   bool enabled;
@@ -29,6 +31,9 @@ class PipInitRequest {
   bool iosIncludeLocalParticipantVideo;
   int videoWidth;
   int videoHeight;
+
+  bool iosMirrorSelfView;
+  bool iosAnimateExit;
 }
 
 @HostApi()

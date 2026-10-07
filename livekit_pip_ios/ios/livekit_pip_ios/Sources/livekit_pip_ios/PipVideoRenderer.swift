@@ -151,6 +151,8 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
     }
 
     private func didUpdateTrackSize() {
+        // Report before the layout guard: tiles need the shape to get a frame.
+        pictureInPictureWindowSizePolicy.trackSize = trackSize
         guard contentSize != .zero, trackSize != .zero else { return }
         let wRatio = trackSize.width / contentSize.width
         let hRatio = trackSize.height / contentSize.height
@@ -160,7 +162,6 @@ final class PipVideoRenderer: UIView, RTCVideoRenderer {
         noOfFramesToSkipAfterRendering = needsSkip
             ? max(Int(max(Int(wRatio), Int(hRatio)) / 2), 1) : 0
         skippedFrames = 0
-        pictureInPictureWindowSizePolicy.trackSize = trackSize
     }
 
     private func handleFrameSkippingIfRequired() {

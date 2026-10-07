@@ -1,0 +1,3 @@
+dependency_overrides:
+  livekit_pip_platform_interface:
+    path: ../livekit_pip_platform_interface

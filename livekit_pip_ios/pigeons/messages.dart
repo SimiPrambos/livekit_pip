@@ -20,6 +20,8 @@ class PipInitRequest {
     this.iosIncludeLocalParticipantVideo = true,
     this.videoWidth = 0,
     this.videoHeight = 0,
+    this.iosMirrorSelfView = true,
+    this.iosAnimateExit = true,
   });
 
   bool enabled;
@@ -29,6 +31,30 @@ class PipInitRequest {
   bool iosIncludeLocalParticipantVideo;
   int videoWidth;
   int videoHeight;
+
+  bool iosMirrorSelfView;
+  bool iosAnimateExit;
+}
+
+/// One tile of the PiP window.
+class PipParticipant {
+  PipParticipant({
+    required this.identity,
+    required this.isLocal,
+    required this.isMicMuted,
+    required this.displayName,
+    this.videoTrackId,
+    this.avatarUrl,
+  });
+
+  String identity;
+  bool isLocal;
+
+  /// Null while the camera is off, unpublished, or unsubscribed.
+  String? videoTrackId;
+  bool isMicMuted;
+  String displayName;
+  String? avatarUrl;
 }
 
 @HostApi()
@@ -39,4 +65,7 @@ abstract class LiveKitPipHostApi {
   void dispose();
   bool isSupported();
   void updateActiveTrack(String trackId);
+
+  /// Tiles of the PiP window: the remote speaker and the local camera.
+  void updateParticipants(List<PipParticipant> participants);
 }

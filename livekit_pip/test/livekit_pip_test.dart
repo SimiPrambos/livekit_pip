@@ -8,6 +8,8 @@ import 'package:livekit_pip_platform_interface/livekit_pip_platform_interface.da
 import 'package:mocktail/mocktail.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
+import 'helpers/fake_room.dart';
+
 class _MockPlatform extends Mock
     with MockPlatformInterfaceMixin
     implements LivekitPipPlatform {}
@@ -17,6 +19,8 @@ void main() {
 
   late _MockPlatform platform;
   late StreamController<int> stateRaw;
+
+  setUpAll(() => registerFallbackValue(<PipParticipantInfo>[]));
 
   setUp(() {
     platform = _MockPlatform();
@@ -37,6 +41,8 @@ void main() {
         ),
         videoWidth: any(named: 'videoWidth'),
         videoHeight: any(named: 'videoHeight'),
+        iosMirrorSelfView: any(named: 'iosMirrorSelfView'),
+        iosAnimateExit: any(named: 'iosAnimateExit'),
       ),
     ).thenAnswer((_) async {});
     when(() => platform.stateStream).thenAnswer((_) => stateRaw.stream);
@@ -44,6 +50,9 @@ void main() {
     when(() => platform.exitPip()).thenAnswer((_) async {});
     when(() => platform.dispose()).thenAnswer((_) async {});
     when(() => platform.updateActiveTrack(any())).thenAnswer((_) async {});
+    when(
+      () => platform.updateParticipants(any()),
+    ).thenAnswer((_) async {});
     when(
       () => platform.updateAspectRatio(any(), any()),
     ).thenAnswer((_) async {});
@@ -171,12 +180,150 @@ void main() {
       await room.dispose();
     });
   });
+
+  group('updateAspectRatio', () {
+    test('before initialize throws StateError', () {
+      final pip = LiveKitPip();
+      expect(() => pip.updateAspectRatio(16, 9), throwsStateError);
+    });
+
+    test('forwards the ratio clamped to Android range', () async {
+      final pip = LiveKitPip();
+      await pip.initialize(room: Room(), config: _config());
+      await pip.updateAspectRatio(1000, 100);
+      verify(() => platform.updateAspectRatio(239, 100)).called(1);
+      await pip.dispose();
+    });
+
+    test('ignores a non-positive size', () async {
+      final pip = LiveKitPip();
+      await pip.initialize(room: Room(), config: _config());
+      await pip.updateAspectRatio(0, 9);
+      verifyNever(() => platform.updateAspectRatio(any(), any()));
+      await pip.dispose();
+    });
+  });
+
+  group('iOS tiles', () {
+    List<PipParticipantInfo> lastSent() =>
+        verify(
+              () => platform.updateParticipants(captureAny()),
+            ).captured.last
+            as List<PipParticipantInfo>;
+
+    test('sends mirroring to the platform', () async {
+      final pip = LiveKitPip();
+      await pip.initialize(
+        room: Room(),
+        config: _config(ios: const IosPipConfiguration(mirrorSelfView: false)),
+      );
+      verify(
+        () => platform.initialize(
+          enabled: any(named: 'enabled'),
+          disableWhenScreenSharing: any(named: 'disableWhenScreenSharing'),
+          androidAutoEnterOnBackground: any(
+            named: 'androidAutoEnterOnBackground',
+          ),
+          iosAutoEnterOnBackground: any(named: 'iosAutoEnterOnBackground'),
+          iosIncludeLocalParticipantVideo: any(
+            named: 'iosIncludeLocalParticipantVideo',
+          ),
+          videoWidth: any(named: 'videoWidth'),
+          videoHeight: any(named: 'videoHeight'),
+          iosMirrorSelfView: false,
+          iosAnimateExit: any(named: 'iosAnimateExit'),
+        ),
+      ).called(1);
+      await pip.dispose();
+    });
+
+    test('sends the exit animation setting to the platform', () async {
+      final pip = LiveKitPip();
+      await pip.initialize(
+        room: Room(),
+        config: _config(ios: const IosPipConfiguration(animateExit: false)),
+      );
+      verify(
+        () => platform.initialize(
+          enabled: any(named: 'enabled'),
+          disableWhenScreenSharing: any(named: 'disableWhenScreenSharing'),
+          androidAutoEnterOnBackground: any(
+            named: 'androidAutoEnterOnBackground',
+          ),
+          iosAutoEnterOnBackground: any(named: 'iosAutoEnterOnBackground'),
+          iosIncludeLocalParticipantVideo: any(
+            named: 'iosIncludeLocalParticipantVideo',
+          ),
+          videoWidth: any(named: 'videoWidth'),
+          videoHeight: any(named: 'videoHeight'),
+          iosMirrorSelfView: any(named: 'iosMirrorSelfView'),
+          iosAnimateExit: false,
+        ),
+      ).called(1);
+      await pip.dispose();
+    });
+
+    test('seeds the tiles already in the room, then sends changes', () async {
+      final fake = FakeRoom();
+      final camera = fake.addCamera('cam-1');
+      fake.addRemote('clinician', cameraTrackId: 'r-cam');
+      final pip = LiveKitPip();
+      await pip.initialize(room: fake.room, config: _config());
+      expect(lastSent().map((t) => t.videoTrackId), ['r-cam', 'cam-1']);
+
+      fake.setMuted(camera, muted: true);
+      await pumpEventQueue();
+      expect(lastSent().map((t) => t.videoTrackId), ['r-cam', null]);
+      await pip.dispose();
+    });
+
+    test('passes the avatar resolver through', () async {
+      final fake = FakeRoom()..addRemote('clinician');
+      final pip = LiveKitPip();
+      await pip.initialize(
+        room: fake.room,
+        config: _config(
+          ios: IosPipConfiguration(
+            avatarUrlResolver: (p) => 'https://example.com/${p.identity}.png',
+          ),
+        ),
+      );
+      expect(lastSent().first.avatarUrl, 'https://example.com/clinician.png');
+      await pip.dispose();
+    });
+
+    test('leaves the local tile out when the self-view is off', () async {
+      final fake = FakeRoom()..addCamera('cam-1');
+      final pip = LiveKitPip();
+      await pip.initialize(
+        room: fake.room,
+        config: _config(
+          ios: const IosPipConfiguration(includeLocalParticipantVideo: false),
+        ),
+      );
+      expect(lastSent(), isEmpty);
+      await pip.dispose();
+    });
+
+    test('stops sending after dispose', () async {
+      final fake = FakeRoom();
+      final pip = LiveKitPip();
+      await pip.initialize(room: fake.room, config: _config());
+      await pip.dispose();
+      clearInteractions(platform);
+      fake.publishCamera('cam-1');
+      await pumpEventQueue();
+      verifyNever(() => platform.updateParticipants(any()));
+    });
+  });
 }
 
 Widget _dummyBuilder(BuildContext context, Room room) =>
     const SizedBox.shrink();
 
-LiveKitPipConfiguration _config() => const LiveKitPipConfiguration(
-  android: AndroidPipConfiguration(pipWidgetBuilder: _dummyBuilder),
-  ios: IosPipConfiguration(),
+LiveKitPipConfiguration _config({
+  IosPipConfiguration ios = const IosPipConfiguration(),
+}) => LiveKitPipConfiguration(
+  android: const AndroidPipConfiguration(pipWidgetBuilder: _dummyBuilder),
+  ios: ios,
 );

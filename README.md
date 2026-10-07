@@ -15,13 +15,11 @@ This package is under active development.
 |---|---|
 | iOS — dominant-speaker PiP (auto-enter, manual enter/exit, active-speaker switching) | ✅ Working |
 | iOS — screen-share suppression & `PipState` stream | ✅ Working |
-| iOS — self-view inset (`includeLocalParticipantVideo`) | 🚧 Planned (config exists, native compositing not yet wired) |
+| iOS — side-by-side tiles (remote + self), avatars when the camera is off, muted badge | ✅ Working (live self-view needs multitasking camera access; see [Self-view on iOS](#self-view-on-ios)) |
 | Android — auto-enter PiP on background (API 31+) | ✅ Working |
 | Android — manual enter/exit via API | ✅ Working |
 | Android — active speaker tracking & dynamic aspect ratio | ✅ Working |
 | Android — custom widget rendering in PiP window | ✅ Working |
-
-The API surface below is the intended public interface; flags marked 🚧 are accepted but not yet fully honored.
 
 ---
 
@@ -30,7 +28,7 @@ The API surface below is the intended public interface; flags marked 🚧 are ac
 Keeping a video call visible while users switch apps is table stakes for any serious calling product. Flutter's WebRTC layer doesn't expose PiP out of the box, and the two platforms work completely differently under the hood. `livekit_pip` handles all of it:
 
 - **Android** — shrinks the entire Flutter surface into a floating window. You supply the widget (grid, self-view, anything). The package handles `PictureInPictureParams`, auto-enter on background (API 31+), and the legacy `onUserLeaveHint` path (API 26–30).
-- **iOS** — drives a native `AVSampleBufferDisplayLayer` with a live WebRTC frame pipeline. The active speaker fills the PiP window automatically (a composited self-view inset is planned). No extra entitlements needed on iOS 18+ with a `voip` background mode.
+- **iOS** — drives a native `AVSampleBufferDisplayLayer` with a live WebRTC frame pipeline. The latest remote speaker and your own camera sit side by side, FaceTime-style; a camera that is off shows the person's avatar.
 
 Just hand the package a LiveKit `Room` and drop in one widget. Everything else is automatic.
 
@@ -46,10 +44,7 @@ Just hand the package a LiveKit `Room` and drop in one widget. Everything else i
 - **`PipState` stream** for driving your own UI (`unsupported` → `inactive` → `entering` → `active` → `exiting`)
 - **Custom widget rendering** — Android: provide any Flutter widget (grid, self-view, branded overlay, etc.)
 - **Graceful degradation** — no-ops when PiP is unsupported or disabled in system settings
-
-Planned (see [Status](#status)):
-
-- Optional self-view inset on iOS (composited natively, no extra layers)
+- **iOS split view** — remote and self tiles sized to their video shapes (a landscape tile goes left, otherwise you do), avatars or initials when a camera is off, and a muted-microphone badge
 
 ---
 
@@ -63,11 +58,11 @@ Planned (see [Status](#status)):
 | Custom widget in PiP window | ✅ | — |
 | Active speaker (dominant feed) | ✅ | ✅ |
 | Dynamic aspect ratio | ✅ | — |
-| Self-view inset | ✅ (via widget) | 🚧 (composited) |
+| Self-view | ✅ (via widget) | ✅ (native tile) |
 
-> ✅ implemented · 🚧 in progress — see [Status](#status).
+> ✅ implemented — see [Status](#status).
 
-> **Note:** iOS shows a single composited feed — one dominant speaker plus optional self-view inset. An arbitrary multi-tile grid in the PiP window is not possible on iOS due to platform constraints (`AVSampleBufferDisplayLayer` accepts one buffer at a time). Android supports any custom widget in the PiP window via `pipWidgetBuilder`, enabling full flexibility.
+> **Note:** iOS shows at most two native tiles: the latest remote speaker (never an AI agent) and, optionally, you. There is no `pipWidgetBuilder` on iOS: PiP is only on screen while the app is in the background, and Flutter does not render in the background on iOS. Android supports any custom widget in the PiP window via `pipWidgetBuilder`.
 
 ---
 
@@ -187,12 +182,13 @@ In `Info.plist`, add `voip` (and/or `audio`) to `UIBackgroundModes`:
 </array>
 ```
 
-For self-view in PiP on iOS 17 and below, add the multitasking camera entitlement to your `.entitlements` file:
+#### Self-view on iOS
 
-```xml
-<key>com.apple.developer.avfoundation.multitasking-camera-access</key>
-<true/>
-```
+With `includeLocalParticipantVideo: true` the plugin turns on `isMultitaskingCameraAccessEnabled` on flutter_webrtc's capture session, so the camera keeps running after the user leaves the app. The plugin requires iOS 16, and at that deployment target iOS grants this without the `multitasking-camera-access` entitlement ([Apple: Adopting Picture in Picture for video calls](https://developer.apple.com/documentation/avkit/adopting-picture-in-picture-for-video-calls)). The device must still report `isMultitaskingCameraAccessSupported`.
+
+Otherwise the user's tile shows their avatar during PiP, and the console prints `[livekit_pip] multitasking camera access not supported` once.
+
+A camera that keeps running also keeps streaming to the other participants while the user is in another app.
 
 > **Prerequisite:** The LiveKit `Room` must remain connected while the app is in the background. Do not disconnect or suspend audio on lifecycle background events.
 
@@ -231,6 +227,11 @@ await pip.initialize(
     ),
     ios: IosPipConfiguration(
       includeLocalParticipantVideo: true,
+      mirrorSelfView: true, // default
+      // false hides the tiles while the PiP window closes.
+      animateExit: true, // default
+      // Shown while a participant's camera is off; null shows initials.
+      avatarUrlResolver: (participant) => avatarFor(participant.identity),
     ),
   ),
 );
@@ -255,7 +256,24 @@ await pip.enterPiP();
 await pip.exitPiP();
 ```
 
-### 5. Clean up
+### 5. Shape the Android window yourself (optional)
+
+By default the Android PiP window takes the shape of the active remote
+speaker's video. If `pipWidgetBuilder` lays out something else, such as two
+tiles side by side, turn that off and set the shape yourself. Values are
+clamped to the range Android accepts; iOS ignores the call.
+
+```dart
+android: AndroidPipConfiguration(
+  pipWidgetBuilder: (context, room) => MySplitView(room: room),
+  aspectRatioFollowsActiveSpeaker: false,
+),
+
+// Whenever the layout changes, including before PiP opens:
+await pip.updateAspectRatio(18, 16);
+```
+
+### 6. Clean up
 
 ```dart
 @override

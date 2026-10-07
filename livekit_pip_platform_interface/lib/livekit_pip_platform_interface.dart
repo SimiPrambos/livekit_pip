@@ -6,3 +6,4 @@ library;
 
 export 'src/livekit_pip_platform.dart';
 export 'src/method_channel_livekit_pip.dart';
+export 'src/pip_participant_info.dart';

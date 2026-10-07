@@ -23,6 +23,8 @@ LiveKitPipConfiguration _config() => LiveKitPipConfiguration(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() => registerFallbackValue(<PipParticipantInfo>[]));
+
   late _MockPlatform platform;
   late StreamController<int> stateRaw;
 
@@ -44,7 +46,12 @@ void main() {
         ),
         videoWidth: any(named: 'videoWidth'),
         videoHeight: any(named: 'videoHeight'),
+        iosMirrorSelfView: any(named: 'iosMirrorSelfView'),
+        iosAnimateExit: any(named: 'iosAnimateExit'),
       ),
+    ).thenAnswer((_) async {});
+    when(
+      () => platform.updateParticipants(any()),
     ).thenAnswer((_) async {});
     when(() => platform.stateStream).thenAnswer((_) => stateRaw.stream);
     when(() => platform.dispose()).thenAnswer((_) async {});

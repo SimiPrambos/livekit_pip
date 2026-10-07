@@ -4,6 +4,7 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:livekit_pip/src/active_speaker_selector.dart';
 import 'package:livekit_pip/src/aspect_ratio.dart';
 import 'package:livekit_pip/src/pip_configuration.dart';
+import 'package:livekit_pip/src/pip_participant_tracker.dart';
 import 'package:livekit_pip/src/pip_state.dart';
 import 'package:livekit_pip_platform_interface/livekit_pip_platform_interface.dart';
 
@@ -16,6 +17,7 @@ class LiveKitPip {
 
   StreamSubscription<int>? _stateSubscription;
   ActiveSpeakerSelector? _speakerSelector;
+  PipParticipantTracker? _participantTracker;
   EventsListener<RoomEvent>? _roomListener;
 
   PipState _currentState = PipState.inactive;
@@ -69,12 +71,8 @@ class LiveKitPip {
       },
       onAspectRatioChanged: (width, height) {
         if (!_initialized || _disposed) return;
-        final r = clampPipAspectRatio(width, height);
-        if (r.width > 0 && r.height > 0) {
-          unawaited(
-            LivekitPipPlatform.instance.updateAspectRatio(r.width, r.height),
-          );
-        }
+        if (!config.android.aspectRatioFollowsActiveSpeaker) return;
+        unawaited(_sendAspectRatio(width, height));
       },
     );
     _roomListener = room.createListener()
@@ -94,6 +92,8 @@ class LiveKitPip {
       iosIncludeLocalParticipantVideo: config.ios.includeLocalParticipantVideo,
       videoWidth: 0,
       videoHeight: 0,
+      iosMirrorSelfView: config.ios.mirrorSelfView,
+      iosAnimateExit: config.ios.animateExit,
     );
     _stateSubscription = LivekitPipPlatform.instance.stateStream.listen(
       (raw) {
@@ -103,22 +103,16 @@ class LiveKitPip {
       },
     );
     _initialized = true;
-    // Push initial dominant track — participants may already be publishing
-    // video before initialize() is called, so we can't wait for the first
-    // ActiveSpeakersChangedEvent.
-    final initialTrackId = _speakerSelector?.currentBestTrackId;
-    if (initialTrackId != null) {
-      unawaited(LivekitPipPlatform.instance.updateActiveTrack(initialTrackId));
-    }
-    final initialDim = _speakerSelector?.currentBestDimensions;
-    if (initialDim != null) {
-      final r = clampPipAspectRatio(initialDim.width, initialDim.height);
-      if (r.width > 0 && r.height > 0) {
-        unawaited(
-          LivekitPipPlatform.instance.updateAspectRatio(r.width, r.height),
-        );
-      }
-    }
+    _speakerSelector?.selectBestFromRoom();
+    _participantTracker = PipParticipantTracker(
+      room: room,
+      includeLocal: config.ios.includeLocalParticipantVideo,
+      avatarUrlResolver: config.ios.avatarUrlResolver,
+      onChanged: (tiles) {
+        if (_disposed) return;
+        unawaited(LivekitPipPlatform.instance.updateParticipants(tiles));
+      },
+    )..refresh();
   }
 
   /// Requests the OS to enter PiP mode.
@@ -148,6 +142,23 @@ class LiveKitPip {
     return LivekitPipPlatform.instance.exitPip();
   }
 
+  /// Sets the Android PiP window to [width]:[height], clamped to the range
+  /// Android accepts. Applies while PiP is open and to the next entry.
+  ///
+  /// No effect on iOS, which sizes its window from the tiles it draws.
+  ///
+  /// Throws [StateError] if not initialized or already disposed.
+  Future<void> updateAspectRatio(int width, int height) {
+    _assertInitialized('updateAspectRatio');
+    return _sendAspectRatio(width, height);
+  }
+
+  Future<void> _sendAspectRatio(int width, int height) {
+    final r = clampPipAspectRatio(width, height);
+    if (r.width <= 0 || r.height <= 0) return Future<void>.value();
+    return LivekitPipPlatform.instance.updateAspectRatio(r.width, r.height);
+  }
+
   /// Releases all native resources and closes [stateStream].
   ///
   /// Idempotent — safe to call multiple times.
@@ -158,6 +169,8 @@ class LiveKitPip {
     _roomListener = null;
     await _speakerSelector?.dispose();
     _speakerSelector = null;
+    await _participantTracker?.dispose();
+    _participantTracker = null;
     await _stateSubscription?.cancel();
     _stateSubscription = null;
     await LivekitPipPlatform.instance.dispose();

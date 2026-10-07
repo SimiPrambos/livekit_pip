@@ -33,6 +33,8 @@ class PipPlugin : FlutterPlugin, ActivityAware, LiveKitPipHostApi {
         activityBinding = binding
         pipHelper = PipHelper(binding.activity, ::emitState)
         pipHelper?.attach(binding)
+        // A config change recreates the Activity mid-call; re-arm it.
+        initRequest?.let { pipHelper?.configure(it) }
     }
 
     override fun onDetachedFromActivityForConfigChanges() = onDetachedFromActivity()
@@ -73,11 +75,11 @@ class PipPlugin : FlutterPlugin, ActivityAware, LiveKitPipHostApi {
         pipHelper?.onPictureInPictureModeChanged(isInPip)
     }
 
+    // Keeps the helper attached so the next call's initialize() still has an
+    // Activity to configure; only switches auto-enter off.
     override fun dispose() {
-        pipHelper?.detach()
-        pipHelper = null
+        pipHelper?.disable()
         initRequest = null
-        eventSink = null
     }
 
     override fun updateActiveTrack(trackId: String) {

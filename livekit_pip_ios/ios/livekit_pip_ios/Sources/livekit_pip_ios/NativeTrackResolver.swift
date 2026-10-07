@@ -1,3 +1,4 @@
+import AVFoundation
 import WebRTC
 
 /// Isolates all flutter_webrtc internals to a single file.
@@ -5,6 +6,9 @@ import WebRTC
 /// If flutter_webrtc changes its registry API, only this file needs updating.
 protocol NativeTrackResolver {
     func resolveVideoTrack(trackId: String) -> RTCVideoTrack?
+
+    /// The capture session behind flutter_webrtc's camera, if one is running.
+    func cameraCaptureSession() -> AVCaptureSession?
 }
 
 /// Resolves RTCVideoTrack from flutter_webrtc's internal plugin registry.
@@ -15,7 +19,21 @@ protocol NativeTrackResolver {
 ///     remoteTracks dictionaries and transceivers
 ///   @property localTracks: [String: id<LocalTrack>]  — local tracks; each
 ///     id<LocalTrack> responds to -track which returns RTCMediaStreamTrack
+///   @property videoCapturer: RTCCameraVideoCapturer  — the camera; its
+///     captureSession is public WebRTC API (flutter_webrtc 1.6.0)
 class FlutterWebRTCTrackResolver: NativeTrackResolver {
+
+    func cameraCaptureSession() -> AVCaptureSession? {
+        let capturerKey = "videoCapturer"
+        guard
+            let cls = NSClassFromString("FlutterWebRTCPlugin") as? NSObject.Type,
+            let plugin = cls.value(forKey: "sharedSingleton") as? NSObject,
+            // value(forKey:) raises for an unknown key, so check it first.
+            plugin.responds(to: NSSelectorFromString(capturerKey)),
+            let capturer = plugin.value(forKey: capturerKey) as? RTCCameraVideoCapturer
+        else { return nil }
+        return capturer.captureSession
+    }
 
     func resolveVideoTrack(trackId: String) -> RTCVideoTrack? {
         // Get the singleton plugin instance via class-level KVC.

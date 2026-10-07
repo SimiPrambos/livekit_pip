@@ -15,6 +15,8 @@ class MockPlatform extends Mock
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() => registerFallbackValue(<PipParticipantInfo>[]));
+
   group('PipState', () {
     test('has exactly 5 values', () {
       expect(PipState.values, hasLength(5));
@@ -64,7 +66,12 @@ void main() {
           ),
           videoWidth: any(named: 'videoWidth'),
           videoHeight: any(named: 'videoHeight'),
+          iosMirrorSelfView: any(named: 'iosMirrorSelfView'),
+          iosAnimateExit: any(named: 'iosAnimateExit'),
         ),
+      ).thenAnswer((_) async {});
+      when(
+        () => platform.updateParticipants(any()),
       ).thenAnswer((_) async {});
       when(() => platform.stateStream).thenAnswer((_) => stateRaw.stream);
       when(() => platform.dispose()).thenAnswer((_) async {});

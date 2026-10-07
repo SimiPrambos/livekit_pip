@@ -26,7 +26,9 @@ class ActiveSpeakerSelector {
       ..on<TrackMutedEvent>(_onTrackMuted)
       ..on<TrackUnmutedEvent>(_onTrackUnmuted)
       ..on<LocalTrackPublishedEvent>(_onLocalTrackPublished)
-      ..on<LocalTrackUnpublishedEvent>(_onLocalTrackUnpublished);
+      ..on<LocalTrackUnpublishedEvent>(_onLocalTrackUnpublished)
+      ..on<TrackSubscribedEvent>(_onTrackSubscribed)
+      ..on<TrackUnsubscribedEvent>(_onTrackUnsubscribed);
   }
 
   final Room _room;
@@ -97,6 +99,31 @@ class ActiveSpeakerSelector {
     } else if (event.publication.source == TrackSource.camera) {
       _localCameraActive = false;
     }
+  }
+
+  // Speaker events alone miss a remote video that arrives (or leaves) while
+  // nobody is talking, which left the PiP window blank until someone spoke.
+  void _onTrackSubscribed(TrackSubscribedEvent event) {
+    if (event.track is! VideoTrack || _lastTrackId != null) return;
+    selectBestFromRoom();
+  }
+
+  void _onTrackUnsubscribed(TrackUnsubscribedEvent event) {
+    if (event.track is! VideoTrack) return;
+    if (event.track.mediaStreamTrack.id != _lastTrackId) return;
+    _lastTrackId = null;
+    selectBestFromRoom();
+  }
+
+  /// Picks the best remote video from the room's current state and reports
+  /// it through the callbacks. Used to seed native on initialize, since
+  /// participants may already be publishing before any event fires.
+  void selectBestFromRoom() {
+    final trackId = currentBestTrackId;
+    if (trackId == null) return;
+    _updateTrack(trackId);
+    final dim = currentBestDimensions;
+    if (dim != null) _onAspectRatioChanged?.call(dim.width, dim.height);
   }
 
   /// Returns the best available remote video track ID from the room's current
